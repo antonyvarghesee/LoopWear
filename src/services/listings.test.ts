@@ -6,8 +6,10 @@ const { createSupabaseServerClient, getCurrentUser } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/env", () => ({ isSupabaseConfigured: () => true }));
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
+vi.mock("@/services/listing-images", () => ({ getOwnListingPrimaryImageUrls: vi.fn() }));
 
 import {
   archiveOwnListing,

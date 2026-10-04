@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Badge } from "@/components/ui/badge";
 import { getActiveListingBySlug } from "@/services/listings";
+import { getActiveListingImageUrls } from "@/services/listing-images";
+import Image from "next/image";
 
 const getCachedListing = cache(getActiveListingBySlug);
 
@@ -27,6 +29,7 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
   const { slug } = await params;
   const listing = await getCachedListing(slug);
   if (!listing) notFound();
+  const images = await getActiveListingImageUrls(listing.id);
   const seller = listing.profiles;
   const categoryName = Array.isArray(listing.categories) ? listing.categories[0]?.name : listing.categories?.name;
   const brandName = Array.isArray(listing.brands) ? listing.brands[0]?.name : listing.brands?.name;
@@ -34,8 +37,11 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
   return <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
     <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to LoopWear</Link>
     <article className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
-      <div className="flex min-h-[360px] items-center justify-center overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-muted to-muted/40 sm:min-h-[520px]" aria-label="Listing photo placeholder">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground"><div className="flex size-24 items-center justify-center rounded-full bg-background/70"><Shirt className="size-12" /></div><span className="text-sm">Listing photos will be available soon</span></div>
+      <div className="space-y-3">
+        <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-muted to-muted/40 sm:aspect-[4/3]">
+          {images[0] ? <Image src={images[0].url} alt={`${listing.title}, primary photo`} fill sizes="(max-width: 1024px) 100vw, 55vw" className="object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground"><Shirt className="size-12" /><span className="text-sm">No photos for this listing</span></div>}
+        </div>
+        {images.length > 1 && <div className="grid grid-cols-5 gap-2">{images.slice(1).map((image, index) => <div key={image.id} className="relative aspect-square overflow-hidden rounded-xl bg-muted"><Image src={image.url} alt={`${listing.title}, photo ${index + 2}`} fill sizes="20vw" className="object-cover" /></div>)}</div>}
       </div>
       <div className="flex flex-col py-1">
         <div className="flex flex-wrap gap-2"><Badge variant="secondary">{listing.condition}</Badge><Badge variant="outline">{listing.gender}</Badge></div>

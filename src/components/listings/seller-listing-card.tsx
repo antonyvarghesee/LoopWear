@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, Shirt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ListingManagementActions } from "@/components/listings/listing-management-actions";
@@ -17,8 +18,8 @@ export function SellerListingCard({ listing }: { listing: ListingRecord }) {
   const brandName = Array.isArray(listing.brands) ? listing.brands[0]?.name : listing.brands?.name;
   return <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
     <div className="flex flex-col sm:flex-row">
-      <div className="flex min-h-44 items-center justify-center bg-muted/70 text-muted-foreground sm:w-44" aria-label="Listing image placeholder">
-        <div className="flex flex-col items-center gap-2"><Shirt className="size-10" /><span className="text-xs">Photos coming later</span></div>
+      <div className="relative flex min-h-44 items-center justify-center bg-muted/70 text-muted-foreground sm:w-44" aria-label={listing.primaryImageUrl ? `${listing.title} primary image` : "Listing image placeholder"}>
+        {listing.primaryImageUrl ? <Image src={listing.primaryImageUrl} alt={`${listing.title}, primary photo`} fill sizes="(max-width: 640px) 100vw, 176px" unoptimized className="object-cover" /> : <div className="flex flex-col items-center gap-2"><Shirt className="size-10" /><span className="text-xs">Photos coming later</span></div>}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-5 p-5 sm:p-6">
         <div>

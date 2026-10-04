@@ -59,14 +59,24 @@ Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 - Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_APP_URL` in the deployment environment.
 - In Supabase Auth, enable email/password sign-in and add `${NEXT_PUBLIC_APP_URL}/auth/callback` to the allowed redirect URLs. Configure confirmation and recovery emails to use the redirect URL supplied by the app.
 
-## Clothing Listings (Implemented; media deferred)
+## Clothing Listings and Images (Implemented)
 
 - `/sell` creates a draft by default, with explicit publish available after validation.
 - Sellers can edit, publish, archive, remove, and filter their own listings from `/dashboard/listings`; `/sell/[id]/edit` verifies ownership server-side.
-- `/listing/[slug]` renders active listings with SEO metadata, seller details, and a photo placeholder. Image upload is deferred.
+- `/listing/[slug]` renders active listings with SEO metadata, seller details, and a private Storage-backed gallery.
 - Categories and brands are loaded from Supabase. The listing migration seeds common choices without overwriting existing catalog entries.
 - Listing ownership, insert defaults, allowed status changes, and unique URL slugs are enforced in PostgreSQL as well as the server service.
 - Listing migration: `supabase/migrations/20261004000003_listing_system.sql`.
+- Listing images migration: `supabase/migrations/20261004000004_listing_images.sql`.
+
+### Listing image storage and security
+
+- The existing `listing-images` bucket is private. Objects use `{seller_id}/{listing_id}/{uuid}.{jpg|png|webp}` paths.
+- Each listing supports up to 8 images, each at most 5 MB. JPEG/JPG, PNG, and WebP are accepted; SVG is rejected. Server validation checks the declared MIME type, extension, and file signature.
+- Authenticated server services derive the seller from the Supabase session and verify listing ownership for upload, deletion, listing, and reorder operations. Storage RLS independently scopes insert/delete to the authenticated seller and their editable listing path.
+- Public pages only sign images after finding an `ACTIVE` listing. Public signed URLs expire after five minutes; draft/archived/removed objects cannot be newly selected or signed under Storage policy. No service-role key is used by image code.
+- Deleting removes metadata first and then the object; Storage cleanup failures are logged and reported for repair. Failed metadata inserts attempt to remove the uploaded object.
+- Apply migrations through `20261004000004_listing_images.sql` in timestamp order. No separate manual bucket setup is needed. The migration switches the existing listing bucket from public to private and retains public avatar bucket behavior.
 
 ## Target project structure
 

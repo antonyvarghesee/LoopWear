@@ -4,6 +4,7 @@ import { createListingSchema, type CreateListingInput } from "@/lib/validations/
 import { slugifyListingTitle } from "@/lib/listings/slug";
 import type { ListingBrand, ListingCategory, ListingRecord, ListingStatus } from "@/types/listing-management";
 import { getCurrentUser } from "@/services/auth";
+import { getOwnListingPrimaryImageUrls } from "@/services/listing-images";
 
 const LISTING_COLUMNS = "id, seller_id, title, slug, description, category_id, brand_id, gender, size, condition, color, material, original_price, selling_price, location, status, created_at, updated_at, categories!listings_category_id_fkey(name), brands!listings_brand_id_fkey(name)";
 const PUBLIC_LISTING_COLUMNS = `${LISTING_COLUMNS}, profiles!listings_seller_id_fkey(id, username, full_name, avatar_url, rating, review_count, is_verified)`;
@@ -182,7 +183,9 @@ export async function getOwnListings(): Promise<ListingRecord[]> {
     console.error("Unable to load seller listings:", error);
     throw new Error("Your listings are temporarily unavailable.");
   }
-  return (data ?? []) as ListingRecord[];
+  const listings = (data ?? []) as ListingRecord[];
+  const primaryImages = await getOwnListingPrimaryImageUrls(listings.map((listing) => listing.id));
+  return listings.map((listing) => ({ ...listing, primaryImageUrl: primaryImages[listing.id] ?? null }));
 }
 
 export async function getOwnListingForEdit(id: string): Promise<ListingRecord | null> {

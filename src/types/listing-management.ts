@@ -21,6 +21,7 @@ export interface ListingRecord {
   status: ListingStatus;
   created_at: string;
   updated_at: string;
+  primaryImageUrl?: string | null;
   categories?: { name: string } | Array<{ name: string }> | null;
   brands?: { name: string } | Array<{ name: string }> | null;
   profiles?: {
