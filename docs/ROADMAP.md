@@ -16,14 +16,15 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 - Complete SQL migration schema (`supabase/migrations/20261004000000_initial_schema.sql`) with RLS policies, indexes, storage buckets, and Realtime publications
 - Graceful environment variable validation with Zod
 
-## Phase 2 — Identity and profiles (Next)
+## Phase 2 — Identity and profiles (Completed)
 
-- Register / login / logout / session
-- Server-side session helpers
-- Profile create/edit
-- Protected account routes
+- Supabase email registration, verification callback, login, logout, and password recovery/reset
+- Server-side session helpers and protected `/settings/profile` route
+- Profile display/edit for username, display name, bio, and location
+- Database-owned profile creation and restricted editable-column RLS/grants
+- Auth, profile, validation, and route-guard tests
 
-## Phase 3 — Listings and media
+## Phase 3 — Listings and media (Next)
 
 - Listing schema + RLS
 - Create / edit / archive own listings

@@ -41,8 +41,23 @@ Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 - **Client**: `src/lib/supabase/client.ts` — Browser-side client using `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **Server**: `src/lib/supabase/server.ts` — Server-side client using `@supabase/ssr` cookies for Server Components, Server Actions, & Route Handlers.
 - **Admin**: `src/lib/supabase/admin.ts` — Server-only admin client using `SUPABASE_SERVICE_ROLE_KEY`. Never exposed to client bundles.
-- **Middleware**: `src/lib/supabase/middleware.ts` & `src/middleware.ts` — Automatic session token refresh on HTTP requests.
-- **Migrations**: SQL schema located in `supabase/migrations/20261004000000_initial_schema.sql`.
+- **Session refresh**: `src/lib/supabase/middleware.ts` & `src/proxy.ts` — Automatic session token refresh on HTTP requests.
+- **Migrations**: SQL schema and follow-up changes are in `supabase/migrations/`.
+
+## Identity and Profiles (Implemented)
+
+- Email registration with username and display name, email verification, password login/logout, and password recovery/reset use Supabase Auth.
+- Auth callbacks exchange Supabase PKCE codes and only redirect to fixed internal verification or password-reset routes.
+- Server session helpers distinguish an absent session from Supabase/configuration failures. `/settings/profile` is guarded on the server.
+- Users can edit username, display name, bio, and location. Profile identity is derived from the authenticated server session.
+- Profile rows are created by a database trigger. RLS and SQL column grants prevent authenticated users from inserting profile rows or changing system-controlled trust fields; only username, display name, bio, and location can be updated.
+- Username format and uniqueness are enforced in the database; username conflicts during updates receive a safe user-facing error.
+
+### Supabase setup required to run auth
+
+- Apply the existing migrations in timestamp order, including `20261004000002_secure_profiles_and_user_trigger.sql`.
+- Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_APP_URL` in the deployment environment.
+- In Supabase Auth, enable email/password sign-in and add `${NEXT_PUBLIC_APP_URL}/auth/callback` to the allowed redirect URLs. Configure confirmation and recovery emails to use the redirect URL supplied by the app.
 
 ## Target project structure
 
