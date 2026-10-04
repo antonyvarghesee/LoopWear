@@ -25,7 +25,7 @@ export interface ListingRecord {
   categories?: { name: string } | Array<{ name: string }> | null;
   brands?: { name: string } | Array<{ name: string }> | null;
   profiles?: {
-    id: string;
+    id?: string;
     username: string;
     full_name: string | null;
     avatar_url: string | null;

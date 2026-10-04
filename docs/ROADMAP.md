@@ -37,6 +37,7 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 
 - `/browse` displays active listings only, with database-backed URL search, filters, sorting, and pagination (Prompt 6).
 - `/favorites` lets signed-in buyers save and remove active listings (Prompt 7).
+- `/seller/[username]` displays public seller details and paginated active listings (Prompt 8).
 
 ## Phase 5 — Messaging
 

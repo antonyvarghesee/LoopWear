@@ -3,11 +3,13 @@ import Link from "next/link";
 import { MapPin, Package } from "lucide-react";
 import type { ListingRecord } from "@/types/listing-management";
 import { FavoriteButton } from "@/components/listings/favorite-button";
+import { sellerProfileHref } from "@/lib/validations/seller-profile";
 
 export function BrowseListingCard({ listing, isFavorite = false, authenticated = false, returnTo = "/browse" }: { listing: ListingRecord; isFavorite?: boolean; authenticated?: boolean; returnTo?: string }) {
   const category = Array.isArray(listing.categories) ? listing.categories[0]?.name : listing.categories?.name;
   const brand = Array.isArray(listing.brands) ? listing.brands[0]?.name : listing.brands?.name;
   const seller = listing.profiles;
+  const sellerHref = seller?.username ? sellerProfileHref(seller.username) : null;
   return (
     <article className="relative overflow-hidden rounded-xl border border-border/70 bg-card transition-shadow hover:shadow-md">
       <div className="relative">
@@ -24,12 +26,12 @@ export function BrowseListingCard({ listing, isFavorite = false, authenticated =
         <div className="flex min-h-4 justify-between gap-2 text-xs text-muted-foreground"><span className="truncate font-semibold uppercase tracking-wide">{brand}</span><span className="truncate">{category}</span></div>
         <h2 className="line-clamp-2 min-h-10 text-sm font-medium group-hover:text-primary">{listing.title}</h2>
         <p className="text-base font-semibold">${Number(listing.selling_price).toFixed(2)}</p>
-        {(listing.location || seller) && <div className="flex items-center justify-between gap-2 pt-1 text-xs text-muted-foreground">
-          {listing.location ? <span className="flex min-w-0 items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />{listing.location}</span> : <span />}
-          {seller?.username && <span className="shrink-0">@{seller.username}</span>}
-        </div>}
       </div>
       </Link>
+      {(listing.location || sellerHref) && <div className="flex items-center justify-between gap-2 px-3 pb-3 text-xs text-muted-foreground sm:px-4 sm:pb-4">
+        {listing.location ? <span className="flex min-w-0 items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />{listing.location}</span> : <span />}
+        {sellerHref && <Link href={sellerHref} className="shrink-0 rounded-sm underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">@{seller?.username}</Link>}
+      </div>}
     </article>
   );
 }

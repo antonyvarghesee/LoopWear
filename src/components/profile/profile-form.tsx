@@ -5,16 +5,19 @@ import { updateProfileAction, type FormActionState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar } from "@/components/ui/avatar";
 import type { UserProfile } from "@/services/auth";
 
 export function ProfileForm({ profile, email }: { profile: UserProfile; email: string }) {
   const [state, action, pending] = useActionState<FormActionState, FormData>(updateProfileAction, null);
   const error = (field: string) => state?.fieldErrors?.[field];
+  const displayName = profile.full_name?.trim() || profile.username;
   return (
     <section className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
       <div className="mb-6"><h2 className="text-lg font-semibold">Your profile</h2><p className="mt-1 text-sm text-muted-foreground">Choose how you appear to the LoopWear community.</p></div>
       <form action={action} className="space-y-5" noValidate>
         <div className="space-y-1.5"><label htmlFor="email" className="text-sm font-medium">Email</label><Input id="email" value={email} readOnly disabled className="bg-muted/50" /><p className="text-xs text-muted-foreground">Email is managed through your sign-in account.</p></div>
+        <div className="flex items-center gap-3 rounded-xl border border-border/70 p-3"><Avatar src={profile.avatar_url ?? undefined} alt={`${displayName}’s profile photo`} fallback={displayName.slice(0, 2).toUpperCase()} size="md" /><div><p className="text-sm font-medium">Profile photo</p><p className="text-xs text-muted-foreground">Photo uploads are not available yet.</p></div></div>
         <div className="space-y-1.5"><label htmlFor="username" className="text-sm font-medium">Username</label><Input id="username" name="username" defaultValue={profile.username} autoComplete="username" required aria-invalid={Boolean(error("username"))} />{error("username") && <p className="text-xs text-destructive">{error("username")}</p>}</div>
         <div className="space-y-1.5"><label htmlFor="fullName" className="text-sm font-medium">Display name</label><Input id="fullName" name="fullName" defaultValue={profile.full_name ?? ""} autoComplete="name" aria-invalid={Boolean(error("fullName"))} />{error("fullName") && <p className="text-xs text-destructive">{error("fullName")}</p>}</div>
         <div className="space-y-1.5"><label htmlFor="bio" className="text-sm font-medium">Bio</label><Textarea id="bio" name="bio" defaultValue={profile.bio ?? ""} maxLength={300} rows={4} placeholder="A little about your style…" aria-invalid={Boolean(error("bio"))} />{error("bio") && <p className="text-xs text-destructive">{error("bio")}</p>}<p className="text-xs text-muted-foreground">Up to 300 characters.</p></div>

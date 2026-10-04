@@ -4,8 +4,9 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { escapePostgrestSearch, type BrowseFilters } from "@/lib/validations/browse";
 import type { ListingBrand, ListingCategory, ListingRecord } from "@/types/listing-management";
 import { getActiveListingPrimaryImageUrls } from "@/services/listing-images";
+import { getPublicSellerProfilesForListings } from "@/services/seller-profiles";
 
-const BROWSE_COLUMNS = "id,seller_id,title,slug,description,category_id,brand_id,gender,size,condition,color,material,original_price,selling_price,location,status,created_at,updated_at,categories!listings_category_id_fkey(name,slug),brands!listings_brand_id_fkey(name,slug),profiles!listings_seller_id_fkey(id,username,full_name,avatar_url,rating,review_count,is_verified)";
+const BROWSE_COLUMNS = "id,seller_id,title,slug,description,category_id,brand_id,gender,size,condition,color,material,original_price,selling_price,location,status,created_at,updated_at,categories!listings_category_id_fkey(name,slug),brands!listings_brand_id_fkey(name,slug)";
 
 export async function getBrowseOptions(): Promise<{ categories: ListingCategory[]; brands: ListingBrand[] }> {
   if (!isSupabaseConfigured()) throw new Error("Browse options are unavailable.");
@@ -51,6 +52,13 @@ export async function searchActiveListings(filters: BrowseFilters, options: { ca
     throw new Error("Listings are temporarily unavailable.");
   }
   const listings = (data ?? []) as unknown as ListingRecord[];
-  const images = listings.length ? await getActiveListingPrimaryImageUrls(listings.map((listing) => listing.id)) : {};
-  return { listings: listings.map((listing) => ({ ...listing, primaryImageUrl: images[listing.id] ?? null })), total: count ?? 0, pageSize };
+  let images: Record<string, string> = {};
+  let sellers = new Map<string, NonNullable<ListingRecord["profiles"]>>();
+  if (listings.length) {
+    [images, sellers] = await Promise.all([
+      getActiveListingPrimaryImageUrls(listings.map((listing) => listing.id)),
+      getPublicSellerProfilesForListings(listings.map((listing) => listing.id)),
+    ]);
+  }
+  return { listings: listings.map((listing) => ({ ...listing, profiles: sellers.get(listing.id) ?? null, primaryImageUrl: images[listing.id] ?? null })), total: count ?? 0, pageSize };
 }

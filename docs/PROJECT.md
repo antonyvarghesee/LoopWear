@@ -80,8 +80,9 @@ Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 - Browse loads filter choices from the existing category and brand tables. Each result page loads only its active listings' primary image metadata and signs those private objects for five minutes through the existing session Supabase client. Storage paths are kept server-side; listings without images use a neutral placeholder.
 - Prompt 6 implements browsing only. Favorites, messaging, checkout, orders, reviews, reports, notifications, and administration remain deferred.
 - Favorites reuse the `favorites` table with authenticated owner-only RLS. Inserts are restricted to other users’ ACTIVE listings, duplicate saves are idempotent, and `/favorites` shows only active saved listings with session-signed primary images.
+- Public seller profiles use existing `profiles` fields. The profiles table is owner-readable to authenticated users; anonymous buyers use a narrow public view and security-definer listing projections that omit auth/profile IDs. Seller pages show only active listings and sign primary images in batches.
 - Deleting removes metadata first and then the object; Storage cleanup failures are logged and reported for repair. Failed metadata inserts attempt to remove the uploaded object.
-- Apply migrations through `20261004000006_favorites.sql` in timestamp order. No separate manual bucket setup is needed. The migration switches the existing listing bucket from public to private and retains public avatar bucket behavior.
+- Apply migrations through `20261004000007_public_seller_profiles.sql` in timestamp order. No separate manual bucket setup is needed. The migration switches the existing listing bucket from public to private and retains public avatar bucket behavior.
 
 ## Target project structure
 

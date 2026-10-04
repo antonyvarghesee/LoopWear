@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createSupabaseServerClient, getActiveListingPrimaryImageUrls } = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn(), getActiveListingPrimaryImageUrls: vi.fn() }));
+const { createSupabaseServerClient, getActiveListingPrimaryImageUrls, getPublicSellerProfilesForListings } = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn(), getActiveListingPrimaryImageUrls: vi.fn(), getPublicSellerProfilesForListings: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/listing-images", () => ({ getActiveListingPrimaryImageUrls }));
+vi.mock("@/services/seller-profiles", () => ({ getPublicSellerProfilesForListings }));
 
 import { searchActiveListings } from "@/services/browse";
 import { parseBrowseParams } from "@/lib/validations/browse";
@@ -19,7 +20,7 @@ function makeQuery(response: { data: unknown[] | null; count: number | null; err
 }
 
 describe("active listing browse query", () => {
-  beforeEach(() => { createSupabaseServerClient.mockReset(); getActiveListingPrimaryImageUrls.mockReset().mockResolvedValue({}); });
+  beforeEach(() => { createSupabaseServerClient.mockReset(); getActiveListingPrimaryImageUrls.mockReset().mockResolvedValue({}); getPublicSellerProfilesForListings.mockReset().mockResolvedValue(new Map()); });
   it("enforces ACTIVE status, safely searches punctuation, combines catalog/enum/price filters and paginates in the database", async () => {
     const listing = { id: "00000000-0000-4000-8000-000000000010", slug: "shirt", status: "ACTIVE" };
     const { query, calls } = makeQuery({ data: [listing], count: 25, error: null });

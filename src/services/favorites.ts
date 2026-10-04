@@ -4,9 +4,10 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { favoriteListingIdSchema } from "@/lib/validations/favorites";
 import { getCurrentUser } from "@/services/auth";
 import { getActiveListingPrimaryImageUrls } from "@/services/listing-images";
+import { getPublicSellerProfilesForListings } from "@/services/seller-profiles";
 import type { ListingRecord } from "@/types/listing-management";
 
-const FAVORITE_LISTING_COLUMNS = "id,seller_id,title,slug,description,category_id,brand_id,gender,size,condition,color,material,original_price,selling_price,location,status,created_at,updated_at,categories!listings_category_id_fkey(name,slug),brands!listings_brand_id_fkey(name,slug),profiles!listings_seller_id_fkey(id,username,full_name,avatar_url,rating,review_count,is_verified)";
+const FAVORITE_LISTING_COLUMNS = "id,seller_id,title,slug,description,category_id,brand_id,gender,size,condition,color,material,original_price,selling_price,location,status,created_at,updated_at,categories!listings_category_id_fkey(name,slug),brands!listings_brand_id_fkey(name,slug)";
 
 async function authenticatedContext() {
   const user = await getCurrentUser();
@@ -115,5 +116,8 @@ export async function getFavoriteListings(): Promise<ListingRecord[]> {
   const imageBatches = await Promise.all(Array.from({ length: Math.ceil(listings.length / 24) }, (_, batch) =>
     getActiveListingPrimaryImageUrls(listings.slice(batch * 24, batch * 24 + 24).map((listing) => listing.id))));
   const images = Object.assign({}, ...imageBatches);
-  return listings.map((listing) => ({ ...listing, primaryImageUrl: images[listing.id] ?? null }));
+  const sellerBatches = await Promise.all(Array.from({ length: Math.ceil(listings.length / 24) }, (_, batch) =>
+    getPublicSellerProfilesForListings(listings.slice(batch * 24, batch * 24 + 24).map((listing) => listing.id))));
+  const sellers = new Map<string, NonNullable<ListingRecord["profiles"]>>(sellerBatches.flatMap((batch) => [...batch]));
+  return listings.map((listing) => ({ ...listing, profiles: sellers.get(listing.id) ?? null, primaryImageUrl: images[listing.id] ?? null }));
 }

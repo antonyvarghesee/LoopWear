@@ -5,9 +5,10 @@ import { slugifyListingTitle } from "@/lib/listings/slug";
 import type { ListingBrand, ListingCategory, ListingRecord, ListingStatus } from "@/types/listing-management";
 import { getCurrentUser } from "@/services/auth";
 import { getOwnListingPrimaryImageUrls } from "@/services/listing-images";
+import { getPublicSellerProfilesForListings } from "@/services/seller-profiles";
 
 const LISTING_COLUMNS = "id, seller_id, title, slug, description, category_id, brand_id, gender, size, condition, color, material, original_price, selling_price, location, status, created_at, updated_at, categories!listings_category_id_fkey(name), brands!listings_brand_id_fkey(name)";
-const PUBLIC_LISTING_COLUMNS = `${LISTING_COLUMNS}, profiles!listings_seller_id_fkey(id, username, full_name, avatar_url, rating, review_count, is_verified)`;
+const PUBLIC_LISTING_COLUMNS = LISTING_COLUMNS;
 
 export type ListingResult<T> =
   | { success: true; data: T }
@@ -219,5 +220,7 @@ export async function getActiveListingBySlug(slug: string): Promise<ListingRecor
     console.error("Unable to load public listing:", error);
     throw new Error("This listing is temporarily unavailable.");
   }
-  return data as ListingRecord | null;
+  if (!data) return null;
+  const profiles = await getPublicSellerProfilesForListings([data.id as string]);
+  return { ...(data as ListingRecord), profiles: profiles.get(data.id as string) ?? null };
 }

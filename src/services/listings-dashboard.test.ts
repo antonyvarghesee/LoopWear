@@ -6,6 +6,7 @@ const { createSupabaseServerClient, getCurrentUser, getOwnListingPrimaryImageUrl
   getOwnListingPrimaryImageUrls: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
+vi.mock("server-only", () => ({}));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
 vi.mock("@/services/listing-images", () => ({ getOwnListingPrimaryImageUrls }));
 
