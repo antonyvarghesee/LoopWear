@@ -7,7 +7,7 @@ import { connection } from "next/server";
 import { Badge } from "@/components/ui/badge";
 import { getActiveListingBySlug } from "@/services/listings";
 import { getActiveListingImageUrls } from "@/services/listing-images";
-import Image from "next/image";
+import { ListingImageGallery } from "@/components/listings/listing-image-gallery";
 
 const getCachedListing = cache(getActiveListingBySlug);
 
@@ -38,10 +38,7 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
     <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to LoopWear</Link>
     <article className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
       <div className="space-y-3">
-        <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-muted to-muted/40 sm:aspect-[4/3]">
-          {images[0] ? <Image src={images[0].url} alt={`${listing.title}, primary photo`} fill sizes="(max-width: 1024px) 100vw, 55vw" className="object-cover" /> : <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground"><Shirt className="size-12" /><span className="text-sm">No photos for this listing</span></div>}
-        </div>
-        {images.length > 1 && <div className="grid grid-cols-5 gap-2">{images.slice(1).map((image, index) => <div key={image.id} className="relative aspect-square overflow-hidden rounded-xl bg-muted"><Image src={image.url} alt={`${listing.title}, photo ${index + 2}`} fill sizes="20vw" className="object-cover" /></div>)}</div>}
+        {images.length > 0 ? <ListingImageGallery images={images} listingTitle={listing.title} /> : <div className="relative aspect-square overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-muted to-muted/40 sm:aspect-[4/3]"><div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground"><Shirt className="size-12" /><span className="text-sm">No photos for this listing</span></div></div>}
       </div>
       <div className="flex flex-col py-1">
         <div className="flex flex-wrap gap-2"><Badge variant="secondary">{listing.condition}</Badge><Badge variant="outline">{listing.gender}</Badge></div>
