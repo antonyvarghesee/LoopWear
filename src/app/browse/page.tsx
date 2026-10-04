@@ -9,6 +9,8 @@ import { hasBrowseCriteria, browseParamsToQuery, parseBrowseParams, type SearchP
 import { listingConditions, listingGenders } from "@/lib/validations/listing";
 import { getBrowseOptions, searchActiveListings } from "@/services/browse";
 import type { ListingRecord } from "@/types/listing-management";
+import { getCurrentUser } from "@/services/auth";
+import { getFavoriteListingIds } from "@/services/favorites";
 
 export const metadata = { title: "Browse pre-loved clothes | LoopWear", description: "Search and discover pre-loved clothing from the LoopWear community." };
 
@@ -44,12 +46,17 @@ export default async function BrowsePage({ searchParams }: { searchParams: Promi
   let total = 0;
   let pageSize = 12;
   let failed = false;
+  let userId: string | null = null;
+  let favoriteIds = new Set<string>();
   try {
+    const user = await getCurrentUser();
+    userId = user?.id ?? null;
     options = await getBrowseOptions();
     const result = await searchActiveListings(values, options);
     listings = result.listings;
     total = result.total;
     pageSize = result.pageSize;
+    if (user) favoriteIds = new Set(await getFavoriteListingIds(listings.map((listing) => listing.id)));
   } catch {
     failed = true;
   }
@@ -67,7 +74,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: Promi
       <section aria-label="Active listings">
         {failed ? <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm"><AlertCircle className="mb-2 h-5 w-5 text-destructive"/><p className="font-medium">Listings are temporarily unavailable.</p><p className="mt-1 text-muted-foreground">Please refresh the page in a moment.</p></div> : listings.length ? <>
           <div className="mb-4 flex items-center justify-between gap-2"><p className="text-sm text-muted-foreground">{total} {total === 1 ? "listing" : "listings"}</p><p className="text-sm text-muted-foreground">Page {values.page} of {Math.max(1, Math.ceil(total / pageSize))}</p></div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">{listings.map((listing) => <BrowseListingCard key={listing.id} listing={listing}/>)}</div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">{listings.map((listing) => <BrowseListingCard key={listing.id} listing={listing} isFavorite={favoriteIds.has(listing.id)} authenticated={Boolean(userId)} returnTo={`/browse${browseParamsToQuery(values) ? `?${browseParamsToQuery(values)}` : ""}`}/>)}</div>
           <Pagination values={values} total={total} pageSize={pageSize}/>
         </> : <><EmptyState title={criteria ? "No listings found" : "No listings yet"} description={criteria ? "No active listings match your search and filters. Try adjusting them or clear all filters." : "Check back soon for new pre-loved pieces."}/>{criteria && <p className="mt-3 text-center"><Link className="text-sm text-primary underline" href={clearHref}>Clear filters</Link></p>}</>}
         {!failed && values.page > 1 && listings.length === 0 && <p className="mt-3 text-center"><Link className="text-sm text-primary underline" href="/browse">Return to the first page</Link></p>}

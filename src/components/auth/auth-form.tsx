@@ -38,7 +38,7 @@ function Field({ label, name, type = "text", autoComplete, error, required = tru
   );
 }
 
-export function AuthForm({ kind, statusMessage }: { kind: AuthFormKind; statusMessage?: string }) {
+export function AuthForm({ kind, statusMessage, returnTo }: { kind: AuthFormKind; statusMessage?: string; returnTo?: string }) {
   const action = kind === "login" ? loginAction
     : kind === "register" ? registerAction
       : kind === "forgot-password" ? forgotPasswordAction
@@ -56,6 +56,7 @@ export function AuthForm({ kind, statusMessage }: { kind: AuthFormKind; statusMe
       </div>
       {statusMessage && <p role="status" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-foreground">{statusMessage}</p>}
       <form action={formAction} className="space-y-4" noValidate>
+        {kind === "login" && returnTo && <input type="hidden" name="next" value={returnTo} />}
         {kind === "register" && <>
           <Field name="username" label="Username" autoComplete="username" error={fieldError("username")} />
           <Field name="fullName" label="Display name" autoComplete="name" error={fieldError("fullName")} />

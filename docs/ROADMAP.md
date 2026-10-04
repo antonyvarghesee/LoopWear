@@ -36,7 +36,7 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 ## Phase 4 — Discovery (Browse and search implemented)
 
 - `/browse` displays active listings only, with database-backed URL search, filters, sorting, and pagination (Prompt 6).
-- Favorites remain deferred and are not part of Prompt 6.
+- `/favorites` lets signed-in buyers save and remove active listings (Prompt 7).
 
 ## Phase 5 — Messaging
 

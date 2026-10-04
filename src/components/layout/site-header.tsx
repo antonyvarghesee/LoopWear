@@ -42,6 +42,7 @@ export async function SiteHeader() {
             </summary>
             <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-border bg-background p-2 shadow-lg">
               <Link href="/settings/profile" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Profile / Settings</Link>
+              <Link href="/favorites" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Favorites</Link>
               <form action={logoutAction}><button type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground">Log out</button></form>
             </div>
           </details> : <div className="flex items-center gap-2">

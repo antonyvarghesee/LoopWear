@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { getActiveListingBySlug } from "@/services/listings";
 import { getActiveListingImageUrls } from "@/services/listing-images";
 import { ListingImageGallery } from "@/components/listings/listing-image-gallery";
+import { FavoriteButton } from "@/components/listings/favorite-button";
+import { getCurrentUser } from "@/services/auth";
+import { getFavoriteListingIds } from "@/services/favorites";
 
 const getCachedListing = cache(getActiveListingBySlug);
 
@@ -30,6 +33,9 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
   const listing = await getCachedListing(slug);
   if (!listing) notFound();
   const images = await getActiveListingImageUrls(listing.id);
+  const user = await getCurrentUser();
+  let favorite = false;
+  if (user) favorite = (await getFavoriteListingIds([listing.id])).includes(listing.id);
   const seller = listing.profiles;
   const categoryName = Array.isArray(listing.categories) ? listing.categories[0]?.name : listing.categories?.name;
   const brandName = Array.isArray(listing.brands) ? listing.brands[0]?.name : listing.brands?.name;
@@ -44,6 +50,7 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
         <div className="flex flex-wrap gap-2"><Badge variant="secondary">{listing.condition}</Badge><Badge variant="outline">{listing.gender}</Badge></div>
         <p className="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{brandName ?? "Pre-owned"}{categoryName ? ` · ${categoryName}` : ""}</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{listing.title}</h1>
+        <div className="mt-4"><FavoriteButton listingId={listing.id} isFavorite={favorite} authenticated={Boolean(user)} loginHref={`/listing/${encodeURIComponent(listing.slug)}`} /></div>
         <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-3xl font-bold">${Number(listing.selling_price).toFixed(2)}</span>{listing.original_price != null && <span className="text-base text-muted-foreground line-through">${Number(listing.original_price).toFixed(2)}</span>}</div>
         <p className="mt-6 whitespace-pre-line text-sm leading-7 text-muted-foreground">{listing.description}</p>
         <dl className="mt-7 grid grid-cols-2 gap-x-5 gap-y-4 rounded-2xl border border-border bg-card p-5 text-sm">

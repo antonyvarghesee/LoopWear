@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, PlusCircle, UserRound, X } from "lucide-react";
+import { Heart, Menu, PlusCircle, UserRound, X } from "lucide-react";
 
 const links = [
   ["#featured", "Browse Listings"],
@@ -21,6 +21,7 @@ export function HeaderMobileNav({ authenticated }: { authenticated: boolean }) {
       <nav className="flex flex-col gap-1">{links.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">{label}</Link>)}
         <Link href="/sell" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><PlusCircle className="size-4" />List an item</Link>
         {authenticated && <Link href="/dashboard/listings" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><UserRound className="size-4" />Your listings</Link>}
+        {authenticated && <Link href="/favorites" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><Heart className="size-4" />Favorites</Link>}
       </nav>
     </div>}
   </>;
