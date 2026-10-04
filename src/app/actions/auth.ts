@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/auth-redirect";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -84,11 +85,7 @@ export async function loginAction(_state: FormActionState, formData: FormData): 
     console.error("Sign-in is currently unavailable:", error);
     return { status: "error", message: "Sign-in is temporarily unavailable. Please try again shortly." };
   }
-  const requestedNext = getString(formData, "next");
-  const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//") && !requestedNext.includes("\\")
-    ? requestedNext
-    : "/settings/profile";
-  redirect(next);
+  redirect(safeInternalPath(getString(formData, "next")));
 }
 
 export async function registerAction(_state: FormActionState, formData: FormData): Promise<FormActionState> {

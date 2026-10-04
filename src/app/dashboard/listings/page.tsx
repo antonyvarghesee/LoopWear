@@ -20,7 +20,7 @@ const filters: Array<{ status: "ALL" | ListingStatus; label: string }> = [
 
 export default async function ListingsDashboardPage({ searchParams }: { searchParams: Promise<{ status?: string; saved?: string; updated?: string }> }) {
   await connection();
-  await requireAuth();
+  await requireAuth("/dashboard/listings");
   const [listings, params] = await Promise.all([getOwnListings(), searchParams]);
   const status = filters.find((filter) => filter.status === params.status)?.status ?? "ALL";
   const visible = status === "ALL" ? listings : listings.filter((listing) => listing.status === status);

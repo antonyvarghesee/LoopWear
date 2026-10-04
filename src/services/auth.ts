@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/auth-redirect";
 
 export interface UserProfile {
   id: string;
@@ -55,8 +56,8 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
 }
 
 /** Redirects unauthenticated users. Infrastructure errors are allowed to surface. */
-export async function requireAuth() {
+export async function requireAuth(returnTo = "/") {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(`/login?next=${encodeURIComponent(safeInternalPath(returnTo))}`);
   return user;
 }

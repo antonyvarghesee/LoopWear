@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Profile settings" };
 
 export default async function ProfileSettingsPage() {
   await connection();
-  const user = await requireAuth();
+  const user = await requireAuth("/settings/profile");
   const profile = await getCurrentProfile();
 
   return (

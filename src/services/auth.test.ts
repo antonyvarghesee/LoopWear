@@ -27,4 +27,9 @@ describe("server authentication helpers", () => {
     createSupabaseServerClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: { name: "AuthSessionMissingError" } }) } });
     await expect(requireAuth()).rejects.toThrow("NEXT_REDIRECT:/login");
   });
+
+  it("includes the protected page as the login return destination", async () => {
+    createSupabaseServerClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: { name: "AuthSessionMissingError" } }) } });
+    await expect(requireAuth("/settings/profile")).rejects.toThrow("NEXT_REDIRECT:/login?next=%2Fsettings%2Fprofile");
+  });
 });

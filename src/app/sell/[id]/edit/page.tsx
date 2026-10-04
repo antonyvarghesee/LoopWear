@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: "Edit listing" };
 
 export default async function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  await requireAuth();
   const { id } = await params;
+  await requireAuth(`/sell/${encodeURIComponent(id)}/edit`);
   const [listing, { categories, brands }] = await Promise.all([
     getOwnListingForEdit(id),
     getListingFormOptions(),

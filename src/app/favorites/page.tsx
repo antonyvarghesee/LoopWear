@@ -11,7 +11,7 @@ export const metadata = { title: "Your favorites | LoopWear", description: "The 
 export default async function FavoritesPage() {
   await connection();
   const user = await getCurrentUser();
-  if (!user) redirect("/login?next=%2Ffavorites");
+  if (!user) redirect(`/login?next=${encodeURIComponent("/favorites")}`);
   let listings;
   try {
     listings = await getFavoriteListings();
