@@ -59,6 +59,15 @@ Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 - Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_APP_URL` in the deployment environment.
 - In Supabase Auth, enable email/password sign-in and add `${NEXT_PUBLIC_APP_URL}/auth/callback` to the allowed redirect URLs. Configure confirmation and recovery emails to use the redirect URL supplied by the app.
 
+## Clothing Listings (Implemented; media deferred)
+
+- `/sell` creates a draft by default, with explicit publish available after validation.
+- Sellers can edit, publish, archive, remove, and filter their own listings from `/dashboard/listings`; `/sell/[id]/edit` verifies ownership server-side.
+- `/listing/[slug]` renders active listings with SEO metadata, seller details, and a photo placeholder. Image upload is deferred.
+- Categories and brands are loaded from Supabase. The listing migration seeds common choices without overwriting existing catalog entries.
+- Listing ownership, insert defaults, allowed status changes, and unique URL slugs are enforced in PostgreSQL as well as the server service.
+- Listing migration: `supabase/migrations/20261004000003_listing_system.sql`.
+
 ## Target project structure
 
 ```text

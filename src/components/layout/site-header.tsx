@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { Search, ShoppingBag, User } from "lucide-react";
+import { PlusCircle, Search, ShoppingBag, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HeaderMobileNav, ListItemPlaceholderButton } from "@/components/layout/header-mobile-nav";
+import { HeaderMobileNav } from "@/components/layout/header-mobile-nav";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getCurrentProfile, getCurrentUser } from "@/services/auth";
 import { logoutAction } from "@/app/actions/auth";
@@ -35,7 +35,7 @@ export async function SiteHeader() {
           <div className="relative w-full"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input type="search" placeholder="Search pre-owned clothing…" aria-label="Search listings" className="h-9 w-full rounded-full bg-muted/50 pl-9 text-xs" /></div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden sm:block"><ListItemPlaceholderButton /></div>
+          <Link href="/sell" className="hidden sm:block"><Button variant="outline" size="sm" className="gap-1.5 rounded-full text-xs font-semibold"><PlusCircle className="h-3.5 w-3.5" />List an Item</Button></Link>
           {user ? <details className="group relative">
             <summary className="flex max-w-40 cursor-pointer list-none items-center gap-2 rounded-full border border-border px-2.5 py-1 text-xs font-semibold hover:bg-muted" aria-label="Open account menu">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary"><User className="size-3.5" /></span><span className="truncate">{displayName}</span>
@@ -48,7 +48,7 @@ export async function SiteHeader() {
             <Link href="/login"><Button variant="ghost" size="sm" className="rounded-full text-xs font-semibold">Sign in</Button></Link>
             <Link href="/register"><Button size="sm" className="rounded-full text-xs font-semibold">Register</Button></Link>
           </div>}
-          <HeaderMobileNav />
+          <HeaderMobileNav authenticated={Boolean(user)} />
         </div>
       </div>
       <div className="border-t border-border/40 px-4 pb-3 pt-1 lg:hidden">

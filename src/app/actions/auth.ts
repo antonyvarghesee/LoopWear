@@ -34,6 +34,38 @@ function callbackUrl(path: "verify-email" | "reset-password") {
   return callback.toString();
 }
 
+function logRegistrationFailure(context: string, error: unknown) {
+  if (process.env.NODE_ENV !== "development") return;
+
+  const candidate = error as {
+    name?: unknown;
+    message?: unknown;
+    code?: unknown;
+    status?: unknown;
+    cause?: { name?: unknown; message?: unknown } | null;
+  } | null;
+  const redact = (rawMessage: string) => rawMessage
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/(bearer\s+)[\w.-]+/gi, "$1[redacted]")
+    .replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g, "[redacted-token]")
+    .replace(/(password\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/(key\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]");
+  const message = redact(typeof candidate?.message === "string" ? candidate.message : String(error));
+  const causeMessage = typeof candidate?.cause?.message === "string"
+    ? redact(candidate.cause.message)
+    : undefined;
+
+  console.error("Registration diagnostic (development only):", {
+    context,
+    name: typeof candidate?.name === "string" ? candidate.name : "UnknownError",
+    code: typeof candidate?.code === "string" ? candidate.code : undefined,
+    status: typeof candidate?.status === "number" ? candidate.status : undefined,
+    message,
+    causeName: typeof candidate?.cause?.name === "string" ? candidate.cause.name : undefined,
+    causeMessage,
+  });
+}
+
 export async function loginAction(_state: FormActionState, formData: FormData): Promise<FormActionState> {
   const parsed = loginSchema.safeParse({
     email: getString(formData, "email"),
@@ -73,10 +105,11 @@ export async function registerAction(_state: FormActionState, formData: FormData
       .eq("username", parsed.data.username)
       .maybeSingle();
     if (usernameLookupError) {
-      console.error("Unable to check registration username:", usernameLookupError);
-      return { status: "error", message: "Registration is temporarily unavailable. Please try again shortly." };
+      // The database trigger creates the profile and handles concurrent
+      // username collisions, so this convenience lookup must not block Auth.
+      logRegistrationFailure("username preflight lookup", usernameLookupError);
     }
-    if (existingProfile) {
+    if (!usernameLookupError && existingProfile) {
       return { status: "error", message: "That username is already in use. Please choose another.", fieldErrors: { username: "That username is already in use." } };
     }
     const { error } = await supabase.auth.signUp({
@@ -88,14 +121,14 @@ export async function registerAction(_state: FormActionState, formData: FormData
       },
     });
     if (error) {
-      console.error("Supabase registration failed:", error);
+      logRegistrationFailure("Supabase signUp returned an error", error);
       if (error.code === "23505" || /profiles_username/i.test(error.message)) {
         return { status: "error", message: "That username is already in use. Please choose another.", fieldErrors: { username: "That username is already in use." } };
       }
       return { status: "error", message: "We couldn't create your account. Please check your details and try again." };
     }
   } catch (error) {
-    console.error("Registration is currently unavailable:", error);
+    logRegistrationFailure("registration action threw", error);
     return { status: "error", message: "Registration is temporarily unavailable. Please try again shortly." };
   }
   return { status: "success", message: "Your account is ready. Check your email for a verification link before signing in." };

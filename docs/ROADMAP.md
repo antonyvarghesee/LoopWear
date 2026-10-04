@@ -24,14 +24,16 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 - Database-owned profile creation and restricted editable-column RLS/grants
 - Auth, profile, validation, and route-guard tests
 
-## Phase 3 — Listings and media (Next)
+## Phase 3 — Listings and media (Core listings completed; media deferred)
 
-- Listing schema + RLS
-- Create / edit / archive own listings
-- Photo upload to Supabase Storage
-- Public listing detail pages (SEO)
+- Listing schema migration, seller-scoped RLS, server authorization, and database-owned unique slugs
+- Draft creation, own-listing edit, publish, archive, and remove lifecycle
+- Seller dashboard with status filters
+- Database-driven category and brand selection with initial seed data
+- Public active listing detail pages with SEO metadata and seller information
+- Photo upload to Supabase Storage remains deferred
 
-## Phase 4 — Discovery
+## Phase 4 — Discovery (Next)
 
 - Browse listings
 - Search and filters (category, size, price, condition)

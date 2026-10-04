@@ -1,0 +1,66 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { cache } from "react";
+import { MapPin, ShieldCheck, Shirt, Star } from "lucide-react";
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import { Badge } from "@/components/ui/badge";
+import { getActiveListingBySlug } from "@/services/listings";
+
+const getCachedListing = cache(getActiveListingBySlug);
+
+type ListingRouteProps = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: ListingRouteProps): Promise<Metadata> {
+  const { slug } = await params;
+  const listing = await getCachedListing(slug);
+  if (!listing) return { title: "Listing not found" };
+  return {
+    title: listing.title,
+    description: listing.description.slice(0, 160),
+    openGraph: { title: listing.title, description: listing.description.slice(0, 160), type: "website" },
+  };
+}
+
+export default async function ListingDetailPage({ params }: ListingRouteProps) {
+  await connection();
+  const { slug } = await params;
+  const listing = await getCachedListing(slug);
+  if (!listing) notFound();
+  const seller = listing.profiles;
+  const categoryName = Array.isArray(listing.categories) ? listing.categories[0]?.name : listing.categories?.name;
+  const brandName = Array.isArray(listing.brands) ? listing.brands[0]?.name : listing.brands?.name;
+
+  return <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+    <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to LoopWear</Link>
+    <article className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+      <div className="flex min-h-[360px] items-center justify-center overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-muted to-muted/40 sm:min-h-[520px]" aria-label="Listing photo placeholder">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground"><div className="flex size-24 items-center justify-center rounded-full bg-background/70"><Shirt className="size-12" /></div><span className="text-sm">Listing photos will be available soon</span></div>
+      </div>
+      <div className="flex flex-col py-1">
+        <div className="flex flex-wrap gap-2"><Badge variant="secondary">{listing.condition}</Badge><Badge variant="outline">{listing.gender}</Badge></div>
+        <p className="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{brandName ?? "Pre-owned"}{categoryName ? ` · ${categoryName}` : ""}</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{listing.title}</h1>
+        <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-3xl font-bold">${Number(listing.selling_price).toFixed(2)}</span>{listing.original_price != null && <span className="text-base text-muted-foreground line-through">${Number(listing.original_price).toFixed(2)}</span>}</div>
+        <p className="mt-6 whitespace-pre-line text-sm leading-7 text-muted-foreground">{listing.description}</p>
+        <dl className="mt-7 grid grid-cols-2 gap-x-5 gap-y-4 rounded-2xl border border-border bg-card p-5 text-sm">
+          <div><dt className="text-xs text-muted-foreground">Size</dt><dd className="mt-1 font-medium">{listing.size}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Condition</dt><dd className="mt-1 font-medium">{listing.condition}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Category</dt><dd className="mt-1 font-medium">{categoryName ?? "—"}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Brand</dt><dd className="mt-1 font-medium">{brandName ?? "Unbranded"}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Style category</dt><dd className="mt-1 font-medium">{listing.gender}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Color</dt><dd className="mt-1 font-medium">{listing.color || "—"}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Material</dt><dd className="mt-1 font-medium">{listing.material || "—"}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Location</dt><dd className="mt-1 inline-flex items-center gap-1 font-medium">{listing.location ? <><MapPin className="size-3.5 text-muted-foreground" />{listing.location}</> : "—"}</dd></div>
+        </dl>
+        <section className="mt-6 rounded-2xl border border-border bg-card p-5" aria-labelledby="seller-heading">
+          <h2 id="seller-heading" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Listed by</h2>
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{(seller?.full_name || seller?.username || "LW").slice(0, 2).toUpperCase()}</span><div><p className="flex items-center gap-1 text-sm font-semibold">{seller?.full_name || seller?.username || "LoopWear member"}{seller?.is_verified && <ShieldCheck className="size-4 text-emerald-600" aria-label="Verified seller" />}</p><p className="text-xs text-muted-foreground">@{seller?.username ?? "member"}</p></div></div>
+            {seller && <div className="flex items-center gap-1 text-sm"><Star className="size-4 fill-amber-400 text-amber-400" /><span>{Number(seller.rating).toFixed(1)}</span><span className="text-muted-foreground">({seller.review_count})</span></div>}
+          </div>
+        </section>
+      </div>
+    </article>
+  </main>;
+}
