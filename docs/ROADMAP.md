@@ -33,11 +33,10 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 - Public active listing detail pages with SEO metadata, seller information, and image galleries
 - Private listing image uploads, ordering, deletion, RLS policies, and signature validation (`20261004000004_listing_images.sql`)
 
-## Phase 4 — Discovery (Next)
+## Phase 4 — Discovery (Browse and search implemented)
 
-- Browse listings
-- Search and filters (category, size, price, condition)
-- Favorites
+- `/browse` displays active listings only, with database-backed URL search, filters, sorting, and pagination (Prompt 6).
+- Favorites remain deferred and are not part of Prompt 6.
 
 ## Phase 5 — Messaging
 

@@ -7,6 +7,13 @@ import { detectImageMime, imageSortOrderSchema, listingImageUploadSchema, MAX_LI
 const BUCKET = "listing-images";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export type ListingImageRecord = { id: string; listing_id: string; storage_path: string; sort_order: number; created_at: string; signedUrl?: string };
+export function selectPrimaryImagePaths(images: Array<{ listing_id: string; storage_path: string | null }>, allowedIds: Set<string>) {
+  const primary = new Map<string, string>();
+  for (const image of images) {
+    if (image.storage_path && allowedIds.has(image.listing_id) && !primary.has(image.listing_id)) primary.set(image.listing_id, image.storage_path);
+  }
+  return primary;
+}
 export function makeListingImagePath(sellerId: string, listingId: string, extension: string) {
   return `${sellerId}/${listingId}/${randomUUID()}.${extension}`;
 }
@@ -132,4 +139,28 @@ export async function getActiveListingImageUrls(listingId: string) {
     if (!url) return null;
     return { id: image.id as string, url };
   })).then((images) => images.filter((image): image is {id: string; url: string} => image !== null));
+}
+
+/** Sign one primary image per confirmed ACTIVE listing; paths never leave this server service. */
+export async function getActiveListingPrimaryImageUrls(listingIds: string[]): Promise<Record<string, string>> {
+  if (listingIds.length === 0) return {};
+  if (listingIds.length > 24 || listingIds.some((id) => !UUID.test(id)) || new Set(listingIds).size !== listingIds.length) {
+    throw new Error("Invalid listing identifiers.");
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data: listings, error: listingError } = await supabase.from("listings")
+    .select("id").in("id", listingIds).eq("status", "ACTIVE");
+  if (listingError) throw new Error("Listing images are temporarily unavailable.");
+  const activeIds = new Set((listings ?? []).map((listing) => listing.id as string));
+  if (activeIds.size !== listingIds.length) throw new Error("An active listing could not be found.");
+  const { data: images, error } = await supabase.from("listing_images")
+    .select("listing_id,storage_path,sort_order").in("listing_id", listingIds)
+    .not("storage_path", "is", null).order("sort_order");
+  if (error) throw new Error("Listing images are temporarily unavailable.");
+  const primary = selectPrimaryImagePaths((images ?? []).map((image) => ({ listing_id: image.listing_id as string, storage_path: image.storage_path as string | null })), activeIds);
+  const signed = await Promise.all([...primary].map(async ([id, path]) => {
+    const url = await createSignedImageUrl(supabase, path, 300);
+    return url ? [id, url] as const : null;
+  }));
+  return Object.fromEntries(signed.filter((entry): entry is readonly [string, string] => entry !== null));
 }

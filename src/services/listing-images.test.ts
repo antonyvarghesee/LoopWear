@@ -5,13 +5,23 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
 
-import { deleteListingImage, getActiveListingImageUrls, getOwnListingPrimaryImageUrls, makeListingImagePath, reorderListingImages } from "@/services/listing-images";
+import { deleteListingImage, getActiveListingImageUrls, getOwnListingPrimaryImageUrls, makeListingImagePath, reorderListingImages, selectPrimaryImagePaths } from "@/services/listing-images";
 
 const listingId = "00000000-0000-4000-8000-000000000010";
 const imageId = "00000000-0000-4000-8000-000000000011";
 
 describe("listing image authorization", () => {
   beforeEach(() => { createSupabaseServerClient.mockReset(); getCurrentUser.mockReset(); });
+  it("selects only the primary image for allowed active listings and omits listings without images", () => {
+    const selected = selectPrimaryImagePaths([
+      { listing_id: listingId, storage_path: "private/first.jpg" },
+      { listing_id: listingId, storage_path: "private/second.jpg" },
+      { listing_id: imageId, storage_path: "unrelated/private.jpg" },
+      { listing_id: imageId, storage_path: null },
+    ], new Set([listingId]));
+    expect(Object.fromEntries(selected)).toEqual({ [listingId]: "private/first.jpg" });
+    expect(selected.has(imageId)).toBe(false);
+  });
   it("builds seller/listing scoped paths with generated UUID filenames", () => {
     const path = makeListingImagePath("seller-id", listingId, "webp");
     expect(path).toMatch(new RegExp(`^seller-id/${listingId}/[0-9a-f-]{36}\\.webp$`));

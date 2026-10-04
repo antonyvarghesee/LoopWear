@@ -9,7 +9,7 @@ import { getCurrentProfile, getCurrentUser } from "@/services/auth";
 import { logoutAction } from "@/app/actions/auth";
 
 const navLinks = [
-  ["#featured", "Browse Listings"],
+  ["/browse", "Browse Listings"],
   ["#categories", "Categories"],
   ["#how-it-works", "How It Works"],
   ["#why-loopwear", "Sustainability"],
@@ -31,9 +31,9 @@ export async function SiteHeader() {
           </Link>
           <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">{navLinks.map(([href, label]) => <Link key={href} href={href} className="transition-colors hover:text-foreground">{label}</Link>)}</nav>
         </div>
-        <div className="hidden max-w-md flex-1 lg:flex">
-          <div className="relative w-full"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input type="search" placeholder="Search pre-owned clothing…" aria-label="Search listings" className="h-9 w-full rounded-full bg-muted/50 pl-9 text-xs" /></div>
-        </div>
+        <form action="/browse" method="get" className="hidden max-w-md flex-1 lg:flex">
+          <div className="relative w-full"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" name="q" placeholder="Search pre-owned clothing…" aria-label="Search listings" className="h-9 w-full rounded-full bg-muted/50 pl-9 text-xs" /></div>
+        </form>
         <div className="flex items-center gap-2 sm:gap-3">
           <Link href="/sell" className="hidden sm:block"><Button variant="outline" size="sm" className="gap-1.5 rounded-full text-xs font-semibold"><PlusCircle className="h-3.5 w-3.5" />List an Item</Button></Link>
           {user ? <details className="group relative">
@@ -51,9 +51,9 @@ export async function SiteHeader() {
           <HeaderMobileNav authenticated={Boolean(user)} />
         </div>
       </div>
-      <div className="border-t border-border/40 px-4 pb-3 pt-1 lg:hidden">
-        <div className="relative mx-auto max-w-7xl"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input type="search" placeholder="Search pre-owned clothing…" aria-label="Search listings" className="h-9 w-full rounded-full bg-muted/50 pl-9 text-xs" /></div>
-      </div>
+      <form action="/browse" method="get" className="border-t border-border/40 px-4 pb-3 pt-1 lg:hidden">
+        <div className="relative mx-auto max-w-7xl"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" name="q" placeholder="Search pre-owned clothing…" aria-label="Search listings" className="h-9 w-full rounded-full bg-muted/50 pl-9 text-xs" /></div>
+      </form>
     </header>
   );
 }
