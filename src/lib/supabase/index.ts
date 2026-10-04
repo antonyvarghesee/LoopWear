@@ -1,5 +1,4 @@
-/**
- * Supabase Auth, Database, Storage, and Realtime clients will be added in
- * later phases. Do not create browser or server clients until env vars exist.
- */
-export {};
+export { createSupabaseBrowserClient } from "./client";
+export { createSupabaseServerClient } from "./server";
+export { createSupabaseAdminClient } from "./admin";
+export { updateSupabaseSession } from "./middleware";

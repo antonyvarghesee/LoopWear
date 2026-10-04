@@ -2,24 +2,21 @@
 
 Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Stripe Test Mode, Resend, Sentry, Vercel). No AWS. No paid add-ons unless requested.
 
-## Phase 0 — Scaffold (current)
+## Phase 0 — Scaffold (Completed)
 
 - Next.js App Router, TypeScript, Tailwind, shadcn/ui, ESLint
 - Folder layout, `.env.example`, docs
 - Minimal marketing homepage
 - Lint, typecheck, and production build green
 
-**Out of scope:** auth, schema, listings, uploads, payments, messaging, admin.
+## Phase 1 — Platform foundation (Completed)
 
-## Phase 1 — Platform foundation
+- Provision Supabase foundation (Auth, Postgres, Storage, Realtime)
+- Env-backed server, browser, admin, and middleware clients
+- Complete SQL migration schema (`supabase/migrations/20261004000000_initial_schema.sql`) with RLS policies, indexes, storage buckets, and Realtime publications
+- Graceful environment variable validation with Zod
 
-- Provision Supabase (Auth, Postgres, Storage, Realtime)
-- Env-backed server/browser clients
-- Sentry project (optional until DSN exists)
-- Error/not-found pages already in place; wire Sentry DSN
-- Resend domain or `onboarding@resend.dev` for local tests
-
-## Phase 2 — Identity and profiles
+## Phase 2 — Identity and profiles (Next)
 
 - Register / login / logout / session
 - Server-side session helpers

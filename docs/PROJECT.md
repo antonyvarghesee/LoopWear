@@ -1,21 +1,10 @@
 # LoopWear project plan
 
-LoopWear is a modern peer-to-peer marketplace for buying and selling pre-owned clothing. This document is the development plan. Product features are **not implemented** in the current scaffold.
+LoopWear is a modern peer-to-peer marketplace for buying and selling pre-owned clothing. This document is the development plan.
 
 ## Goals
 
 Buyers can discover, favorite, message about, and purchase second-hand clothing. Sellers can list items with photos, manage inventory, and fulfill orders. Operators can moderate reports from an admin dashboard.
-
-## Non-goals (this phase)
-
-- Authentication
-- Database schema
-- Listings, search, favorites
-- Image upload
-- Payments and orders
-- Messaging
-- Reviews and reports
-- Admin dashboard
 
 ## Stack (free-first)
 
@@ -28,12 +17,11 @@ Buyers can discover, favorite, message about, and purchase second-hand clothing.
 | Files | Supabase Storage | Listing photos without AWS |
 | Realtime | Supabase Realtime | Inbox updates without a dedicated broker |
 | Validation | Zod | Shared server/client schemas |
-| ORM | **Not Prisma** | Supabase SQL + typed queries are enough; Prisma would duplicate the data layer |
+| ORM | **Not Prisma** | Supabase SQL + typed queries are enough |
 | Payments | Stripe Test Mode | Card checkout without live charges |
 | Email | Resend | Transactional mail on a free tier |
 | Errors | Sentry | Production diagnostics |
 | Tests | Vitest, Playwright | Unit and browser coverage |
-| Hosting | Vercel (or equivalent) later | No AWS |
 
 Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 
@@ -46,8 +34,15 @@ Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 - Keep business logic in `src/services`; keep UI in `src/app` and `src/components`.
 - Secrets live in environment variables only. `.env.example` documents keys; `.env*` is gitignored except `.env.example`.
 - Public listing pages must be SEO-friendly (metadata, semantic HTML).
-- UI must be responsive and accessible (labels, focus, contrast, keyboard).
 - Fail closed: unknown errors show a generic page; log details server-side / Sentry.
+
+## Supabase Foundation & Client Architecture
+
+- **Client**: `src/lib/supabase/client.ts` — Browser-side client using `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- **Server**: `src/lib/supabase/server.ts` — Server-side client using `@supabase/ssr` cookies for Server Components, Server Actions, & Route Handlers.
+- **Admin**: `src/lib/supabase/admin.ts` — Server-only admin client using `SUPABASE_SERVICE_ROLE_KEY`. Never exposed to client bundles.
+- **Middleware**: `src/lib/supabase/middleware.ts` & `src/middleware.ts` — Automatic session token refresh on HTTP requests.
+- **Migrations**: SQL schema located in `supabase/migrations/20261004000000_initial_schema.sql`.
 
 ## Target project structure
 
@@ -55,48 +50,43 @@ Do not add paid infrastructure unless explicitly requested. Never introduce AWS.
 src/
   app/                 # routes, layouts, metadata (RSC default)
   components/
-    layout/            # site chrome
+    layout/            # site chrome (header, footer)
+    home/              # homepage sections
+    listings/          # listing components
     ui/                # shadcn primitives
-  hooks/               # client hooks when required
+  hooks/               # client hooks
   lib/
-    env.ts             # Zod env schemas
-    supabase/          # clients (Phase 1+)
+    env.ts             # Zod env schemas & Supabase helpers
+    supabase/          # client, server, admin & middleware Supabase modules
     stripe/            # payments (later)
     email/             # Resend (later)
     validations/       # request/form schemas
   services/            # domain logic
   types/               # shared types
-docs/                  # plans
-e2e/                   # Playwright
+supabase/
+  migrations/          # PostgreSQL migrations
+docs/                  # plans & documentation
+e2e/                   # Playwright E2E tests
 ```
 
-## Data sketch (not implemented)
+## Database Schema & Row Level Security
 
-Future Supabase tables, subject to migration review:
+Initial migration table setup (`20261004000000_initial_schema.sql`):
+- `profiles` — seller & buyer profiles keyed to `auth.users(id)`
+- `categories` & `brands` — clothing taxonomy & brands
+- `listings` & `listing_images` — seller listings & photo metadata
+- `favorites` — user favorited items
+- `conversations` & `messages` — messaging threads & Realtime delivery
+- `orders` & `payments` — checkout orders & Stripe PaymentIntents
+- `reviews` — post-purchase seller/item ratings
+- `reports` — trust & safety moderation items
+- `notifications` — user activity notifications
 
-- `profiles` — public seller/buyer profile keyed to `auth.users`
-- `listings` — title, description, category, size, condition, **server-owned price**, status
-- `listing_images` — storage object paths
-- `favorites`
-- `conversations` / `messages`
-- `orders` / `order_items` — amounts copied from listings at purchase time
-- `reviews`
-- `reports`
-- `admin roles` — server-enforced, not a client flag
-
-Row Level Security on every table. Storage policies for listing images. Stripe webhook is the source of truth for paid orders.
-
-## Security notes
-
-- Service role key is server-only.
-- Checkout amounts come from the database, not the request body.
-- Messaging and admin routes check session + role on the server.
-- Report flows must not leak reporter identity to the reported user.
+Every table enforces Row Level Security (RLS). Storage buckets (`listing-images`, `avatars`) enforce authenticated write policies and public read policies.
 
 ## Quality gates
 
 - `npm run lint`
 - `npm run typecheck`
+- `npm run test`
 - `npm run build`
-- Vitest for services and schemas
-- Playwright for critical user journeys once those journeys exist

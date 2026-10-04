@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Public env is optional during scaffolding so the app can start
+ * Public env is optional during scaffolding/development so the app can start
  * before third-party projects are provisioned.
  */
 export const publicEnvSchema = z.object({
@@ -26,4 +26,32 @@ export function getPublicEnv() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
   });
+}
+
+export function getServerEnv() {
+  return serverEnvSchema.parse({
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    SENTRY_DSN: process.env.SENTRY_DSN,
+  });
+}
+
+export function isSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
+export function validateSupabaseEnv() {
+  const isConfigured = isSupabaseConfigured();
+  if (!isConfigured) {
+    return {
+      valid: false,
+      error: "NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.",
+    };
+  }
+  return { valid: true, error: null };
 }
