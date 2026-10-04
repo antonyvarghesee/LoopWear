@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { ToastProvider } from "@/components/ui/toast";
 
 import "./globals.css";
 
@@ -21,23 +22,29 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   ),
   title: {
-    default: "LoopWear",
+    default: "LoopWear — Pre-Owned Clothing Marketplace",
     template: "%s · LoopWear",
   },
   description:
-    "A modern peer-to-peer marketplace for buying and selling pre-owned clothing.",
+    "Buy and sell pre-owned clothing, vintage outerwear, denim, and streetwear in a modern peer-to-peer marketplace.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+      <body className="flex min-h-full flex-col bg-background text-foreground">
+        <ToastProvider>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </ToastProvider>
       </body>
     </html>
   );
