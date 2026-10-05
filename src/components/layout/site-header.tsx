@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { PlusCircle, Search, ShoppingBag, User } from "lucide-react";
+import { MessageCircle, PlusCircle, Search, ShoppingBag, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HeaderMobileNav } from "@/components/layout/header-mobile-nav";
@@ -41,8 +41,10 @@ export async function SiteHeader() {
               <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary"><User className="size-3.5" /></span><span className="truncate">{displayName}</span>
             </summary>
             <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-border bg-background p-2 shadow-lg">
-              <Link href="/settings/profile" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Profile / Settings</Link>
+              <Link href="/settings/profile" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Account Settings</Link>
+              <Link href="/dashboard/listings" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">My Listings</Link>
               <Link href="/favorites" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Favorites</Link>
+              <Link href="/messages" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted"><MessageCircle className="size-4" />Messages</Link>
               <form action={logoutAction}><button type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground">Log out</button></form>
             </div>
           </details> : <div className="flex items-center gap-2">

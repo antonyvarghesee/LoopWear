@@ -39,11 +39,13 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 - `/favorites` lets signed-in buyers save and remove active listings (Prompt 7).
 - `/seller/[username]` displays public seller details and paginated active listings (Prompt 8).
 
-## Phase 5 — Messaging
+## Phase 5 — Messaging (Implemented)
 
-- Conversations tied to a listing
-- Realtime message delivery
-- Server authorization so only participants can read/write
+- `/messages` lists the signed-in user's most recently active listing conversations; `/messages/[conversationId]` checks membership server-side and loads a bounded message history.
+- Buyers can open a conversation from an active listing. A security-definer database function takes the authenticated buyer from `auth.uid()` and the seller from the listing; the existing unique buyer/seller/listing key makes creation idempotent.
+- RLS and column grants allow participants to read conversations/messages and insert message content only. Sender IDs, timestamps, and read state are database-controlled; recipients mark only incoming messages as read.
+- Supabase Realtime watches only INSERT events for the open conversation, and the messages SELECT RLS policy controls row delivery.
+- Migration: `supabase/migrations/20261004000008_messaging.sql`.
 
 ## Phase 6 — Checkout and orders
 
