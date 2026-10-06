@@ -6,6 +6,7 @@ import { requireAdmin } from "@/services/admin-auth";
 
 const adminReportsQuerySchema = z.object({
   status: z.enum(["pending", "reviewed", "resolved", "dismissed"]).optional(),
+  targetType: z.enum(["user", "listing", "conversation", "message"]).optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).max(10000).default(0),
 }).strict();
@@ -18,6 +19,7 @@ export type AdminReport = {
   reason: string;
   description: string | null;
   status: "pending" | "reviewed" | "resolved" | "dismissed";
+  resolution_note: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -31,8 +33,9 @@ export async function getAdminReports(input: unknown = {}): Promise<AdminReport[
     const supabase = await createSupabaseServerClient();
     let query = supabase
       .from("reports")
-      .select("id,reporter_id,target_type,target_id,reason,description,status,created_at,updated_at");
+      .select("id,reporter_id,target_type,target_id,reason,description,status,resolution_note,created_at,updated_at");
     if (parsed.data.status) query = query.eq("status", parsed.data.status);
+    if (parsed.data.targetType) query = query.eq("target_type", parsed.data.targetType);
     const { data, error } = await query
       .order("created_at", { ascending: false })
       .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
