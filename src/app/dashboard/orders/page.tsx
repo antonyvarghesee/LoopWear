@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDeliveryButton } from "@/components/orders/confirm-delivery-button";
+import { MarkOrderShippedButton } from "@/components/orders/mark-order-shipped-button";
 import { requireAuth } from "@/services/auth";
-import { getBuyerOrders } from "@/services/order-delivery";
+import { getBuyerOrders, getSellerOrders } from "@/services/order-delivery";
 
 export const metadata: Metadata = { title: "Your orders" };
 
@@ -19,7 +20,7 @@ const statusVariant = {
 export default async function OrdersDashboardPage() {
   await connection();
   await requireAuth("/dashboard/orders");
-  const orders = await getBuyerOrders();
+  const [orders, sales] = await Promise.all([getBuyerOrders(), getSellerOrders()]);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
@@ -59,6 +60,37 @@ export default async function OrdersDashboardPage() {
           You have no orders yet.
         </p>
       )}
+
+      <section className="mt-14">
+        <header>
+          <p className="text-sm font-medium text-primary">Seller space</p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight">Your sales</h2>
+          <p className="mt-2 text-muted-foreground">Manage orders for items you have sold.</p>
+        </header>
+        {sales.length ? (
+          <ul className="mt-8 space-y-4">
+            {sales.map((order) => (
+              <li key={order.id} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-2">
+                  <p className="font-medium">{order.listingTitle}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Order {order.id.slice(0, 8)} · ₹{order.amount.toFixed(2)} · Placed {new Intl.DateTimeFormat("en", {
+                      dateStyle: "medium",
+                      timeZone: "UTC",
+                    }).format(new Date(order.createdAt))}
+                  </p>
+                  <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
+                </div>
+                {order.status === "paid" && <MarkOrderShippedButton orderId={order.id} />}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
+            You have no sales yet.
+          </p>
+        )}
+      </section>
     </main>
   );
 }
