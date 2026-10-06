@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { getPayUConfiguration } from "@/lib/payu";
 import {
+  confirmPayUPaymentAttempt,
   consumePayUPaymentAttempt,
   getPayUPaymentAttempt,
 } from "@/services/payu-attempts";
@@ -109,7 +110,13 @@ export async function verifyPayUResponse(
     }
 
     const attempt = await getPayUPaymentAttempt(fields.txnid);
-    if (!attempt) return { status: "invalid" };
+    if (
+      !attempt
+      || attempt.payment_provider.toLowerCase() !== "payu"
+      || attempt.provider_transaction_id !== fields.txnid
+    ) {
+      return { status: "invalid" };
+    }
 
     const expectedAmount = normalizeAmount(attempt.amount);
     const currentListingAmount = attempt.current_selling_price === null
@@ -130,6 +137,9 @@ export async function verifyPayUResponse(
       || fields.udf5 !== ""
       || attempt.currency.toLowerCase() !== "inr"
     ) {
+      return { status: "invalid" };
+    }
+    if (!["pending", "verified_success", "confirmed"].includes(attempt.response_state)) {
       return { status: "invalid" };
     }
 
@@ -154,11 +164,17 @@ export async function verifyPayUResponse(
           : null;
     if (!verifiedState) return { status: "invalid" };
 
+    if (verifiedState === "verified_success") {
+      const confirmation = await confirmPayUPaymentAttempt(attempt);
+      return confirmation === "processed" || confirmation === "duplicate_confirmed"
+        ? { status: "success" }
+        : { status: "invalid" };
+    }
+
     const consumed = await consumePayUPaymentAttempt(fields.txnid, verifiedState);
     if (consumed === "duplicate") return { status: "duplicate" };
     if (consumed !== "consumed") return { status: "invalid" };
 
-    if (verifiedState === "verified_success") return { status: "success" };
     if (verifiedState === "verified_cancelled") return { status: "cancelled" };
     return { status: "failure" };
   } catch {

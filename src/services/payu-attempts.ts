@@ -16,6 +16,11 @@ export type PayUPaymentAttempt = {
   current_selling_price: string | number | null;
 };
 
+export type PayUConfirmationResult =
+  | "processed"
+  | "duplicate_confirmed"
+  | "rejected";
+
 export async function getPayUPaymentAttempt(
   transactionId: string,
 ): Promise<PayUPaymentAttempt | null> {
@@ -28,6 +33,35 @@ export async function getPayUPaymentAttempt(
   );
   if (error) throw error;
   return Array.isArray(data) ? (data[0] as PayUPaymentAttempt | undefined) ?? null : null;
+}
+
+export async function confirmPayUPaymentAttempt(
+  attempt: PayUPaymentAttempt,
+): Promise<PayUConfirmationResult> {
+  const amount = String(attempt.amount);
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(amount);
+  if (!match) return "rejected";
+  const amountMinor = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+  if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0) return "rejected";
+
+  const { data, error } = await createSupabaseAdminClient().rpc(
+    "confirm_provider_purchase",
+    {
+      p_payment_provider: "payu",
+      p_event_id: attempt.provider_transaction_id,
+      p_event_type: "payu.payment.success",
+      p_provider_checkout_id: attempt.provider_transaction_id,
+      p_provider_payment_id: attempt.provider_transaction_id,
+      p_listing_id: attempt.listing_id,
+      p_buyer_id: attempt.buyer_id,
+      p_seller_id: attempt.seller_id,
+      p_amount_minor: amountMinor,
+      p_currency: "inr",
+    },
+  );
+  if (error) throw error;
+  if (data === "processed" || data === "duplicate_confirmed") return data;
+  return "rejected";
 }
 
 export async function consumePayUPaymentAttempt(

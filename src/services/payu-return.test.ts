@@ -21,7 +21,7 @@ function payUReturnRequest(): Request {
 }
 
 describe("PayU return handler", () => {
-  it("reports only pending verification for a valid successful response", async () => {
+  it("confirms a purchase only after server-side atomic verification succeeds", async () => {
     verifyPayUResponse.mockResolvedValueOnce({ status: "success" });
     const request = payUReturnRequest();
     expect(request.headers.get("cookie")).toBeNull();
@@ -29,9 +29,10 @@ describe("PayU return handler", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain("Payment received — verification pending");
-    expect(body).toContain("has not confirmed your order");
-    expect(body).toContain("marked the listing sold");
+    expect(body).toContain("Purchase confirmed");
+    expect(body).toContain("order is confirmed");
+    expect(body).toContain("listing is sold");
+    expect(body).not.toContain("has not confirmed your order");
   });
 
   it.each([

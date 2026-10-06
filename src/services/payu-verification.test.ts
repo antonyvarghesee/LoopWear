@@ -2,14 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const { getPayUPaymentAttempt, consumePayUPaymentAttempt } = vi.hoisted(() => ({
+const {
+  getPayUPaymentAttempt,
+  confirmPayUPaymentAttempt,
+  consumePayUPaymentAttempt,
+} = vi.hoisted(() => ({
   getPayUPaymentAttempt: vi.fn(),
+  confirmPayUPaymentAttempt: vi.fn(),
   consumePayUPaymentAttempt: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/services/payu-attempts", () => ({
   getPayUPaymentAttempt,
+  confirmPayUPaymentAttempt,
   consumePayUPaymentAttempt,
 }));
 
@@ -71,6 +77,7 @@ describe("PayU response hash and verification", () => {
     vi.stubEnv("PAYU_MERCHANT_KEY", merchantKey);
     vi.stubEnv("PAYU_MERCHANT_SALT", merchantSalt);
     getPayUPaymentAttempt.mockReset().mockResolvedValue(trustedAttempt());
+    confirmPayUPaymentAttempt.mockReset().mockResolvedValue("processed");
     consumePayUPaymentAttempt.mockReset().mockResolvedValue("consumed");
   });
 
@@ -100,12 +107,15 @@ describe("PayU response hash and verification", () => {
     );
   });
 
-  it("accepts a valid signed response from its persisted attempt without a browser auth session", async () => {
+  it("atomically confirms a valid signed response from its persisted attempt without a browser auth session", async () => {
     const response = signedResponse();
+    const attempt = trustedAttempt();
+    getPayUPaymentAttempt.mockResolvedValueOnce(attempt);
 
     await expect(verifyPayUResponse(response)).resolves.toEqual({ status: "success" });
     expect(getPayUPaymentAttempt).toHaveBeenCalledWith(transactionId);
-    expect(consumePayUPaymentAttempt).toHaveBeenCalledWith(transactionId, "verified_success");
+    expect(confirmPayUPaymentAttempt).toHaveBeenCalledWith(attempt);
+    expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -117,6 +127,7 @@ describe("PayU response hash and verification", () => {
 
     await expect(verifyPayUResponse(signedResponse(payUStatus))).resolves.toEqual({ status: expected });
     expect(consumePayUPaymentAttempt).toHaveBeenCalledWith(transactionId, persistedState);
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid response hash", async () => {
@@ -124,6 +135,7 @@ describe("PayU response hash and verification", () => {
     response.hash = "0".repeat(128);
 
     await expect(verifyPayUResponse(response)).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
@@ -133,6 +145,7 @@ describe("PayU response hash and verification", () => {
     response.hash = createPayUResponseHash(response, merchantSalt);
 
     await expect(verifyPayUResponse(response)).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
@@ -144,6 +157,7 @@ describe("PayU response hash and verification", () => {
 
     await expect(verifyPayUResponse(response)).resolves.toEqual({ status: "invalid" });
     expect(getPayUPaymentAttempt).toHaveBeenCalledWith("attacker-transaction");
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
   it("rejects modified listing, buyer, or seller identifiers", async () => {
@@ -154,6 +168,7 @@ describe("PayU response hash and verification", () => {
 
       await expect(verifyPayUResponse(response)).resolves.toEqual({ status: "invalid" });
     }
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
@@ -165,13 +180,40 @@ describe("PayU response hash and verification", () => {
 
     getPayUPaymentAttempt.mockResolvedValueOnce(null);
     await expect(verifyPayUResponse(response)).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
-  it("rejects duplicate/replayed valid responses atomically", async () => {
+  it("returns an idempotent success for a repeated confirmed response", async () => {
+    getPayUPaymentAttempt.mockResolvedValueOnce({
+      ...trustedAttempt(),
+      response_state: "confirmed",
+    });
+    confirmPayUPaymentAttempt.mockResolvedValueOnce("duplicate_confirmed");
+
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "success" });
+    expect(confirmPayUPaymentAttempt).toHaveBeenCalledOnce();
+    expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("rejects a failed atomic confirmation without claiming purchase success", async () => {
+    confirmPayUPaymentAttempt.mockResolvedValueOnce("rejected");
+
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "invalid" });
+    expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("does not claim success when the listing was already sold by another attempt", async () => {
+    confirmPayUPaymentAttempt.mockResolvedValueOnce("rejected");
+
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).toHaveBeenCalledOnce();
+  });
+
+  it("rejects replayed failed/cancelled responses", async () => {
     consumePayUPaymentAttempt.mockResolvedValueOnce("duplicate");
 
-    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "duplicate" });
+    await expect(verifyPayUResponse(signedResponse("failure"))).resolves.toEqual({ status: "duplicate" });
     expect(consumePayUPaymentAttempt).toHaveBeenCalledOnce();
   });
 
@@ -182,7 +224,24 @@ describe("PayU response hash and verification", () => {
     });
 
     await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("rejects an attempt not in a confirmable state", async () => {
+    getPayUPaymentAttempt.mockResolvedValueOnce({
+      ...trustedAttempt(),
+      response_state: "verified_failure",
+    });
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired attempt returned by persistence", async () => {
+    getPayUPaymentAttempt.mockResolvedValueOnce(null);
+
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "invalid" });
+    expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
   it("fails safely when PayU credentials are unavailable", async () => {

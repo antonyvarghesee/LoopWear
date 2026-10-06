@@ -1,7 +1,10 @@
 import "server-only";
 import { verifyPayUResponse } from "@/services/payu-verification";
 
-function returnPage(title: string, message: string): Response {
+function returnPage(title: string, message: string, confirmed = false): Response {
+  const purchaseState = confirmed
+    ? "The listing is sold and your order and payment have been recorded."
+    : "LoopWear has not confirmed your order or marked the listing sold.";
   const body = `<!doctype html>
 <html lang="en">
   <head>
@@ -13,7 +16,7 @@ function returnPage(title: string, message: string): Response {
     <main>
       <h1>${title}</h1>
       <p>${message}</p>
-      <p>LoopWear has not confirmed your order or marked the listing sold.</p>
+      <p>${purchaseState}</p>
     </main>
   </body>
 </html>`;
@@ -41,7 +44,11 @@ export async function handlePayUReturn(request: Request): Promise<Response> {
     const formData = await request.formData();
     const result = await verifyPayUResponse(getTextFields(formData));
     if (result.status === "success") {
-      return returnPage("Payment received — verification pending", "PayU returned a verified payment response.");
+      return returnPage(
+        "Purchase confirmed",
+        "Your PayU payment was verified and your order is confirmed.",
+        true,
+      );
     }
     if (result.status === "failure") {
       return returnPage("Payment not completed", "PayU returned a verified unsuccessful payment response.");
