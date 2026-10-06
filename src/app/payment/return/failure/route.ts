@@ -1,4 +1,7 @@
 import { handlePayUReturn } from "@/services/payu-return";
 
-export const GET = handlePayUReturn;
+export async function GET(request: Request) {
+  return handlePayUReturn(request);
+}
+
 export const POST = handlePayUReturn;

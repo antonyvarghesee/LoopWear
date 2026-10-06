@@ -1,27 +1,70 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { verifyPayUResponse } = vi.hoisted(() => ({ verifyPayUResponse: vi.fn() }));
+
+vi.mock("server-only", () => ({}));
+vi.mock("@/services/payu-verification", () => ({ verifyPayUResponse }));
+
 import { handlePayUReturn } from "@/services/payu-return";
 import { POST as failureReturn } from "@/app/payment/return/failure/route";
 import { POST as successReturn } from "@/app/payment/return/success/route";
 
-vi.mock("server-only", () => ({}));
+beforeEach(() => {
+  verifyPayUResponse.mockReset();
+});
 
-describe("PayU temporary return handler", () => {
-  it("reports pending verification and does not claim payment success", async () => {
-    const response = handlePayUReturn();
+function payUReturnRequest(): Request {
+  return new Request("https://loopwear.example/payment/return/success", {
+    method: "POST",
+    body: new URLSearchParams({ txnid: "untrusted" }),
+  });
+}
+
+describe("PayU return handler", () => {
+  it("reports only pending verification for a valid successful response", async () => {
+    verifyPayUResponse.mockResolvedValueOnce({ status: "success" });
+    const request = payUReturnRequest();
+    expect(request.headers.get("cookie")).toBeNull();
+    const response = await handlePayUReturn(request);
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body).toContain("Payment verification pending");
-    expect(body).toContain("has not been verified yet");
-    expect(body).not.toMatch(/payment (?:was )?successful|order confirmed/i);
+    expect(body).toContain("Payment received — verification pending");
+    expect(body).toContain("has not confirmed your order");
+    expect(body).toContain("marked the listing sold");
   });
 
-  it.each([successReturn, failureReturn])("does not trust status values posted by PayU's browser return", async (route) => {
-    const response = await route();
+  it.each([
+    [failureReturn, "failure"],
+    [successReturn, "cancelled"],
+  ])("renders the verified %s state without confirming a purchase", async (route, status) => {
+    verifyPayUResponse.mockResolvedValueOnce({ status });
+    const response = await route(payUReturnRequest());
     const body = await response.text();
 
+    expect(body).toMatch(/Payment (?:not completed|cancelled)/);
+    expect(body).toContain("has not confirmed your order");
+  });
+
+  it("shows a generic verification error for invalid or replayed responses", async () => {
+    verifyPayUResponse.mockResolvedValueOnce({ status: "invalid" });
+    const invalid = await failureReturn(payUReturnRequest());
+    expect(await invalid.text()).toContain("could not verify this payment response");
+
+    verifyPayUResponse.mockResolvedValueOnce({ status: "duplicate" });
+    const duplicate = await successReturn(payUReturnRequest());
+    expect(await duplicate.text()).toContain("already been processed");
+    expect(verifyPayUResponse).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not verify GET requests or trust query parameters", async () => {
+    const response = await handlePayUReturn(
+      new Request("https://loopwear.example/payment/return/success?status=success"),
+    );
+    const body = await response.text();
+
+    expect(verifyPayUResponse).not.toHaveBeenCalled();
     expect(body).toContain("Payment verification pending");
-    expect(body).toContain("has not been verified yet");
-    expect(body).not.toMatch(/payment (?:was )?successful|order confirmed/i);
+    expect(body).not.toContain("Payment received");
   });
 });

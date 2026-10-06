@@ -3,16 +3,20 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const { validatePurchase, getCurrentUser } = vi.hoisted(() => ({
+const { validatePurchase, getCurrentUser, rpc } = vi.hoisted(() => ({
   validatePurchase: vi.fn(),
   getCurrentUser: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/services/purchases", () => ({ validatePurchase }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: () => ({ rpc }),
+}));
 
-import { initiatePayUPayment } from "@/services/payu";
+import { createPayURequestHash, initiatePayUPayment } from "@/services/payu";
 import { initiatePayUPaymentAction } from "@/app/actions/payu";
 
 const buyerId = "00000000-0000-4000-8000-000000000001";
@@ -31,6 +35,7 @@ function successfulPurchase(sellingPrice = "129.95") {
 describe("PayU Test/UAT payment initiation", () => {
   beforeEach(() => {
     validatePurchase.mockReset().mockResolvedValue(successfulPurchase());
+    rpc.mockReset().mockResolvedValue({ data: null, error: null });
     getCurrentUser.mockReset().mockResolvedValue({
       id: buyerId,
       email: "buyer@example.test",
@@ -165,11 +170,6 @@ describe("PayU Test/UAT payment initiation", () => {
       udf3: sellerId,
       udf4: "",
       udf5: "",
-      udf6: "",
-      udf7: "",
-      udf8: "",
-      udf9: "",
-      udf10: "",
     });
     expect(JSON.stringify(result)).not.toContain(merchantSalt);
     expect(result.fields).not.toHaveProperty("salt");
@@ -179,24 +179,11 @@ describe("PayU Test/UAT payment initiation", () => {
     );
     expect(clientButton).not.toMatch(/PAYU_MERCHANT_SALT|merchantSalt|salt/i);
 
+    expect(result.fields.hash).toBe(createPayURequestHash(result.fields, merchantSalt));
     const expectedHashInput = [
-      merchantKey,
-      result.fields.txnid,
-      result.fields.amount,
-      result.fields.productinfo,
-      result.fields.firstname,
-      result.fields.email,
-      result.fields.udf1,
-      result.fields.udf2,
-      result.fields.udf3,
-      result.fields.udf4,
-      result.fields.udf5,
-      result.fields.udf6,
-      result.fields.udf7,
-      result.fields.udf8,
-      result.fields.udf9,
-      result.fields.udf10,
-      merchantSalt,
+      merchantKey, result.fields.txnid, result.fields.amount, result.fields.productinfo,
+      result.fields.firstname, result.fields.email, listingId, buyerId, sellerId,
+      "", "", "", "", "", "", "", merchantSalt,
     ].join("|");
     expect(result.fields.hash).toBe(createHash("sha512").update(expectedHashInput).digest("hex"));
   });
@@ -224,7 +211,9 @@ describe("PayU Test/UAT payment initiation", () => {
 
     expect(result.success).toBe(true);
     expect(validatePurchase).toHaveBeenCalledOnce();
-    expect(implementation).not.toMatch(/createSupabaseAdminClient|\.rpc\(|from\(["']orders["']\)|from\(["']payments["']\)/);
+    expect(rpc).toHaveBeenCalledWith("register_provider_checkout_attempt", expect.any(Object));
+    expect(implementation).not.toMatch(/from\(["']orders["']\)|from\(["']payments["']\)/);
+    expect(implementation).not.toMatch(/status\s*=\s*["']SOLD/);
   });
 
   it("uses valid distinct success and failure return URLs derived from NEXT_PUBLIC_APP_URL", async () => {
@@ -244,6 +233,6 @@ describe("PayU Test/UAT payment initiation", () => {
     expect(result.success).toBe(true);
     expect(implementation).toContain("validatePurchase");
     expect(implementation).not.toMatch(/status\s*=\s*["']SOLD/);
-    expect(implementation).not.toMatch(/createSupabaseAdminClient|\.rpc\(|from\(["']listings["']\)/);
+    expect(implementation).not.toMatch(/from\(["']listings["']\)/);
   });
 });

@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getPayUConfiguration, getPayUReturnUrl, PAYU_TEST_ENDPOINT } from "@/lib/payu";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/services/auth";
 import { validatePurchase } from "@/services/purchases";
 
@@ -22,11 +23,6 @@ export type PayUCheckoutFields = {
   udf3: string;
   udf4: string;
   udf5: string;
-  udf6: string;
-  udf7: string;
-  udf8: string;
-  udf9: string;
-  udf10: string;
   surl: string;
   furl: string;
   hash: string;
@@ -41,7 +37,10 @@ function formatAmount(amount: string): string {
   return `${whole}.${fraction.padEnd(2, "0")}`;
 }
 
-function payUHash(fields: Omit<PayUCheckoutFields, "hash">, merchantSalt: string): string {
+export function createPayURequestHash(
+  fields: Omit<PayUCheckoutFields, "hash">,
+  merchantSalt: string,
+): string {
   const hashInput = [
     fields.key,
     fields.txnid,
@@ -54,11 +53,11 @@ function payUHash(fields: Omit<PayUCheckoutFields, "hash">, merchantSalt: string
     fields.udf3,
     fields.udf4,
     fields.udf5,
-    fields.udf6,
-    fields.udf7,
-    fields.udf8,
-    fields.udf9,
-    fields.udf10,
+    "",
+    "",
+    "",
+    "",
+    "",
     merchantSalt,
   ].join("|");
   return createHash("sha512").update(hashInput, "utf8").digest("hex");
@@ -114,18 +113,30 @@ export async function initiatePayUPayment(listingId: unknown): Promise<PayUIniti
       udf3,
       udf4: "",
       udf5: "",
-      udf6: "",
-      udf7: "",
-      udf8: "",
-      udf9: "",
-      udf10: "",
       surl: successUrl,
       furl: failureUrl,
     };
     const fields: PayUCheckoutFields = {
       ...fieldsWithoutHash,
-      hash: payUHash(fieldsWithoutHash, merchantSalt),
+      hash: createPayURequestHash(fieldsWithoutHash, merchantSalt),
     };
+
+    const { error: attemptError } = await createSupabaseAdminClient().rpc(
+      "register_provider_checkout_attempt",
+      {
+        p_payment_provider: "payu",
+        p_provider_transaction_id: txnid,
+        p_listing_id: purchase.data.listingId,
+        p_buyer_id: purchase.data.buyerId,
+        p_seller_id: purchase.data.sellerId,
+        p_amount: amount,
+        p_currency: "inr",
+        p_productinfo: productinfo,
+        p_firstname: firstname,
+        p_email: buyer.email,
+      },
+    );
+    if (attemptError) throw attemptError;
 
     return {
       success: true,
