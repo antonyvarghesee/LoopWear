@@ -60,6 +60,15 @@ describe("purchase validation service", () => {
     expect(createSupabaseServerClient).not.toHaveBeenCalled();
   });
 
+  it("rejects checkout input that contains anything other than a listing ID", async () => {
+    setup();
+    expect(await validatePurchase({ listingId, price: 0.01 })).toEqual({
+      success: false,
+      error: "This listing could not be found.",
+    });
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
   it("rejects a seller purchasing their own listing", async () => {
     setup({ userId: sellerId });
     expect(await validatePurchase(listingId)).toEqual({
