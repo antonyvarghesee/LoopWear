@@ -14,6 +14,8 @@ import { getCurrentUser } from "@/services/auth";
 import { getFavoriteListingIds } from "@/services/favorites";
 import { sellerProfileHref } from "@/lib/validations/seller-profile";
 import { BuyNowButton } from "@/components/listings/buy-now-button";
+import { ReviewDisplay } from "@/components/reviews/review-display";
+import { getPublicSellerReviews, type PublicReview } from "@/services/reviews";
 
 const getCachedListing = cache(getActiveListingBySlug);
 
@@ -41,6 +43,15 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
   if (user) favorite = (await getFavoriteListingIds([listing.id])).includes(listing.id);
   const seller = listing.profiles;
   const sellerHref = seller?.username ? sellerProfileHref(seller.username) : null;
+  let reviews: PublicReview[] = [];
+  let reviewsUnavailable = false;
+  if (seller?.username) {
+    try {
+      reviews = await getPublicSellerReviews({ username: seller.username, listingId: listing.id, limit: 8 });
+    } catch {
+      reviewsUnavailable = true;
+    }
+  }
   const categoryName = Array.isArray(listing.categories) ? listing.categories[0]?.name : listing.categories?.name;
   const brandName = Array.isArray(listing.brands) ? listing.brands[0]?.name : listing.brands?.name;
 
@@ -74,6 +85,15 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
             <div className="flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{(seller?.full_name || seller?.username || "LW").slice(0, 2).toUpperCase()}</span><div>{sellerHref ? <Link href={sellerHref} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="flex items-center gap-1 text-sm font-semibold">{seller?.full_name || seller?.username}{seller?.is_verified && <ShieldCheck className="size-4 text-emerald-600" aria-label="Verified seller" />}</p><p className="text-xs text-muted-foreground">@{seller?.username}</p></Link> : <><p className="text-sm font-semibold">LoopWear member</p><p className="text-xs text-muted-foreground">@member</p></>}</div></div>
             {seller && <div className="flex items-center gap-1 text-sm"><Star className="size-4 fill-amber-400 text-amber-400" /><span>{Number(seller.rating).toFixed(1)}</span><span className="text-muted-foreground">({seller.review_count})</span></div>}
           </div>
+        </section>
+        <section className="mt-6 space-y-3" aria-labelledby="listing-reviews-heading">
+          <div>
+            <h2 id="listing-reviews-heading" className="text-lg font-semibold">Reviews for this listing</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Feedback from verified purchases.</p>
+          </div>
+          {reviewsUnavailable
+            ? <p role="status" className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">Reviews are temporarily unavailable.</p>
+            : <ReviewDisplay reviews={reviews} emptyMessage="No reviews for this listing yet." />}
         </section>
       </div>
     </article>

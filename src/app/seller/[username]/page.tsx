@@ -11,6 +11,13 @@ import { getCurrentUser } from "@/services/auth";
 import { getFavoriteListingIds } from "@/services/favorites";
 import { getPublicSellerProfile, getSellerActiveListings } from "@/services/seller-profiles";
 import { sellerPageHref, sellerPageSchema, sellerUsernameSchema } from "@/lib/validations/seller-profile";
+import { ReviewDisplay } from "@/components/reviews/review-display";
+import { ReviewForm } from "@/components/reviews/review-form";
+import {
+  getPublicSellerReviews,
+  getReviewablePurchasesForSeller,
+  type PublicReview,
+} from "@/services/reviews";
 
 type SellerRouteProps = { params: Promise<{ username: string }>; searchParams: Promise<{ page?: string | string[] }> };
 const getCachedSeller = cache(getPublicSellerProfile);
@@ -60,6 +67,22 @@ export default async function SellerProfilePage({ params, searchParams }: Seller
   }
 
   const user = await getCurrentUser();
+  let reviews: PublicReview[] = [];
+  let reviewsUnavailable = false;
+  try {
+    reviews = await getPublicSellerReviews({ username: seller.username, limit: 20 });
+  } catch {
+    reviewsUnavailable = true;
+  }
+  let reviewablePurchases: Awaited<ReturnType<typeof getReviewablePurchasesForSeller>> = [];
+  let reviewablePurchasesUnavailable = false;
+  if (user) {
+    try {
+      reviewablePurchases = await getReviewablePurchasesForSeller(seller.username);
+    } catch {
+      reviewablePurchasesUnavailable = true;
+    }
+  }
   let favoriteIds = new Set<string>();
   if (user && listings.length > 0) {
     try {
@@ -93,6 +116,32 @@ export default async function SellerProfilePage({ params, searchParams }: Seller
         </div>
       </div>
     </header>
+
+    <section className="mb-10 space-y-4" aria-labelledby="seller-reviews-heading">
+      <div>
+        <h2 id="seller-reviews-heading" className="text-xl font-semibold">Buyer reviews</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Reviews from completed purchases.</p>
+      </div>
+      {reviewsUnavailable
+        ? <p role="status" className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">Reviews are temporarily unavailable.</p>
+        : <ReviewDisplay reviews={reviews} emptyMessage="This seller has no reviews yet." />}
+    </section>
+
+    {user && (reviewablePurchasesUnavailable || reviewablePurchases.length > 0) && (
+      <section className="mb-10 space-y-4" aria-labelledby="your-reviews-heading">
+        <div>
+          <h2 id="your-reviews-heading" className="text-xl font-semibold">Your eligible reviews</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Share feedback for purchases from @{seller.username}.</p>
+        </div>
+        {reviewablePurchasesUnavailable
+          ? <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm">Your eligible purchases are temporarily unavailable.</p>
+          : <div className="grid gap-4 md:grid-cols-2">
+            {reviewablePurchases.map((purchase) => (
+              <ReviewForm key={purchase.orderId} orderId={purchase.orderId} listingTitle={purchase.listingTitle} />
+            ))}
+          </div>}
+      </section>
+    )}
 
     <section aria-labelledby="seller-listings-heading">
       <div className="mb-5 flex items-end justify-between gap-3">
