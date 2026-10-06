@@ -18,6 +18,9 @@ import {
   getReviewablePurchasesForSeller,
   type PublicReview,
 } from "@/services/reviews";
+import { getUserBlockState, resolvePublicUsername } from "@/services/trust-safety";
+import { ReportButton } from "@/components/trust-safety/report-button";
+import { BlockUserButton } from "@/components/trust-safety/block-user-button";
 
 type SellerRouteProps = { params: Promise<{ username: string }>; searchParams: Promise<{ page?: string | string[] }> };
 const getCachedSeller = cache(getPublicSellerProfile);
@@ -67,6 +70,16 @@ export default async function SellerProfilePage({ params, searchParams }: Seller
   }
 
   const user = await getCurrentUser();
+  let profileUserId: string | null = null;
+  let isBlocked = false;
+  if (user && seller.username) {
+    try {
+      profileUserId = await resolvePublicUsername(seller.username);
+      if (profileUserId && profileUserId !== user.id) isBlocked = await getUserBlockState(profileUserId);
+    } catch {
+      profileUserId = null;
+    }
+  }
   let reviews: PublicReview[] = [];
   let reviewsUnavailable = false;
   try {
@@ -115,6 +128,12 @@ export default async function SellerProfilePage({ params, searchParams }: Seller
           <span><strong className="font-semibold text-foreground">{total}</strong> active {total === 1 ? "listing" : "listings"}</span>
         </div>
       </div>
+      {user && profileUserId && profileUserId !== user.id && (
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+          <ReportButton targetType="user" targetId={profileUserId} label="Report user" />
+          <BlockUserButton userId={profileUserId} initiallyBlocked={isBlocked} />
+        </div>
+      )}
     </header>
 
     <section className="mb-10 space-y-4" aria-labelledby="seller-reviews-heading">

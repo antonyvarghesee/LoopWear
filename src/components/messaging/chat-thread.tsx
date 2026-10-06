@@ -8,18 +8,22 @@ import { MESSAGE_MAX_LENGTH } from "@/lib/validations/messaging";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ConversationMessage } from "@/services/messaging";
+import { ReportButton } from "@/components/trust-safety/report-button";
 
 function formatTimestamp(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
-export function ChatThread({ conversationId, currentUserId, initialMessages, initialOffset, initialHasMore }: {
+export function ChatThread({ conversationId, currentUserId, initialMessages, initialOffset, initialHasMore, canSend = true, currentUserBlockedOther = false, otherBlockedCurrentUser = false }: {
   conversationId: string;
   currentUserId: string;
   initialMessages: ConversationMessage[];
   initialOffset: number;
   initialHasMore: boolean;
+  canSend?: boolean;
+  currentUserBlockedOther?: boolean;
+  otherBlockedCurrentUser?: boolean;
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [body, setBody] = useState("");
@@ -33,7 +37,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, ini
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const seenMessageIds = useRef(new Set(initialMessages.map((message) => message.id)));
-  const canSend = body.trim().length > 0 && body.trim().length <= MESSAGE_MAX_LENGTH && !sending;
+  const canSubmit = canSend && body.trim().length > 0 && body.trim().length <= MESSAGE_MAX_LENGTH && !sending;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -85,7 +89,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, ini
 
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canSend) return;
+    if (!canSubmit) return;
     setSending(true);
     setMessageError(null);
     const result = await sendMessageAction({ conversationId, body });
@@ -128,11 +132,13 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, ini
       {messages.map((message) => <article key={message.id} className={`max-w-[88%] rounded-2xl px-4 py-2.5 sm:max-w-[75%] ${message.is_own ? "ml-auto rounded-br-md bg-primary text-primary-foreground" : "mr-auto rounded-bl-md bg-muted"}`}>
         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
         <time dateTime={message.created_at} className={`mt-1 block text-right text-[10px] ${message.is_own ? "text-primary-foreground/75" : "text-muted-foreground"}`}>{formatTimestamp(message.created_at)}</time>
+        {!message.is_own && <ReportButton targetType="message" targetId={message.id} label="Report message" />}
       </article>)}
       <div ref={bottomRef} />
     </div>
     {messageError && <p role="alert" className="px-4 pb-2 text-sm text-destructive">{messageError}</p>}
-    <form onSubmit={submitMessage} className="border-t border-border p-3 sm:p-4">
+    {!canSend && <p role="status" className="border-t border-border px-4 py-3 text-sm text-muted-foreground">{currentUserBlockedOther ? "You blocked this user. Unblock them to send messages." : otherBlockedCurrentUser ? "Messaging is unavailable for this conversation." : "Messaging is unavailable."}</p>}
+    {canSend && <form onSubmit={submitMessage} className="border-t border-border p-3 sm:p-4">
       <label htmlFor="message-body" className="sr-only">Write a message</label>
       <div className="flex items-end gap-2">
         <Textarea id="message-body" name="body" value={body} onChange={(event) => setBody(event.target.value)} onKeyDown={(event) => {
@@ -141,9 +147,9 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, ini
             event.currentTarget.form?.requestSubmit();
           }
         }} maxLength={MESSAGE_MAX_LENGTH} rows={2} placeholder="Write a message…" className="min-h-11 resize-none" aria-describedby="message-hint" />
-        <Button type="submit" disabled={!canSend || readPending} className="h-11 shrink-0 rounded-xl">{sending ? "Sending…" : "Send"}</Button>
+        <Button type="submit" disabled={!canSubmit || readPending} className="h-11 shrink-0 rounded-xl">{sending ? "Sending…" : "Send"}</Button>
       </div>
       <p id="message-hint" className="mt-1 px-1 text-[11px] text-muted-foreground">{body.length}/{MESSAGE_MAX_LENGTH} characters. Ctrl or ⌘ + Enter to send.</p>
-    </form>
+    </form>}
   </section>;
 }

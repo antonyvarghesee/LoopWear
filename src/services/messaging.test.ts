@@ -22,6 +22,7 @@ function setup(options: {
   messageRows?: Array<Record<string, unknown>>;
   insertedMessage?: Record<string, unknown>;
   readError?: { message: string } | null;
+  startConversationError?: { code: string; message: string } | null;
 } = {}) {
   const listingQuery = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn() };
   listingQuery.select.mockReturnValue(listingQuery);
@@ -42,8 +43,12 @@ function setup(options: {
   const rpc = vi.fn((name: string) => {
     if (name === "get_messaging_conversations") return Promise.resolve({ data: options.conversationRows ?? [], error: null });
     if (name === "get_messaging_conversation") return authorizedConversation;
+    if (name === "can_send_conversation_message") return Promise.resolve({ data: true, error: null });
     if (name === "mark_messaging_conversation_read" && options.readError) return Promise.resolve({ data: null, error: options.readError });
     if (name === "mark_messaging_conversation_read") return Promise.resolve({ data: 1, error: null });
+    if (name === "get_or_create_listing_conversation" && options.startConversationError) {
+      return Promise.resolve({ data: null, error: options.startConversationError });
+    }
     return Promise.resolve({ data: conversationId, error: null });
   });
   const from = vi.fn((table: string) => table === "listings" ? listingQuery : messageQuery);
@@ -86,6 +91,17 @@ describe("messaging service", () => {
     expect(await getOrCreateConversation(listingId)).toEqual({ success: true, conversationId });
     expect(rpc).toHaveBeenCalledTimes(2);
   });
+
+  it.each(["current user blocked seller", "seller blocked current user"])(
+    "shows a safe unavailable message when %s prevents new conversation creation",
+    async () => {
+      setup({ startConversationError: { code: "42501", message: "Messaging is unavailable for this user" } });
+      expect(await getOrCreateConversation(listingId)).toEqual({
+        success: false,
+        error: "Messaging is unavailable for this user.",
+      });
+    },
+  );
 
   it("rejects self-messaging and inactive or missing listings", async () => {
     setup({ listing: { id: listingId, seller_id: buyerId } });
@@ -133,6 +149,23 @@ describe("messaging service", () => {
   it("does not send when conversation membership lookup returns no row", async () => {
     const { messageQuery } = setup({ conversation: null });
     expect(await sendMessage(conversationId, "Hello")).toMatchObject({ success: false, error: "This conversation could not be found." });
+    expect(messageQuery.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not attempt a message insert when a participant block disables sending", async () => {
+    const { rpc, messageQuery } = setup();
+    rpc.mockImplementation((name: string) => {
+      if (name === "can_send_conversation_message") return Promise.resolve({ data: false, error: null });
+      if (name === "get_messaging_conversation") return { maybeSingle: vi.fn().mockResolvedValue({
+        data: { conversation_id: conversationId, is_buyer: true, listing_id: listingId, listing_title: "Coat", listing_slug: "coat", listing_active: true },
+        error: null,
+      }) };
+      return Promise.resolve({ data: conversationId, error: null });
+    });
+    expect(await sendMessage(conversationId, "Hello")).toMatchObject({
+      success: false,
+      error: "Messaging is unavailable for this user.",
+    });
     expect(messageQuery.insert).not.toHaveBeenCalled();
   });
 

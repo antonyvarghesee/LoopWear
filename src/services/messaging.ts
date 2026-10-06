@@ -168,6 +168,9 @@ export async function getOrCreateConversation(listingId: unknown): Promise<{ suc
 
   const { data, error } = await context.supabase.rpc("get_or_create_listing_conversation", { p_listing_id: parsed.data });
   if (error || typeof data !== "string") {
+    if (error?.code === "42501") {
+      return { success: false, error: "Messaging is unavailable for this user." };
+    }
     console.error("Conversation creation failed:", error ?? "No conversation ID returned");
     return { success: false, error: "A conversation could not be opened. Please try again." };
   }
@@ -181,6 +184,17 @@ export async function sendMessage(conversationId: unknown, body: unknown): Promi
   if (!context) return { success: false, error: "Sign in to send messages." };
   try {
     if (!await getAuthorizedConversationRow(context, parsed.data.conversationId)) return { success: false, error: "This conversation could not be found." };
+    const { data: canSend, error: permissionError } = await context.supabase.rpc(
+      "can_send_conversation_message",
+      { p_conversation_id: parsed.data.conversationId },
+    );
+    if (permissionError) {
+      console.error("Conversation send permission lookup failed.");
+      return { success: false, error: "Messaging is temporarily unavailable. Please try again." };
+    }
+    if (canSend !== true) {
+      return { success: false, error: "Messaging is unavailable for this user." };
+    }
     const { data, error } = await context.supabase.from("messages")
       .insert({ conversation_id: parsed.data.conversationId, content: parsed.data.body })
       .select("id,sender_id,content,is_read,created_at")

@@ -62,7 +62,7 @@ describe("Phase 12A trust and safety migration contract", () => {
   it("keeps moderation operations separate from ordinary users", () => {
     expect(migration).toMatch(/REVOKE ALL PRIVILEGES ON TABLE public\.reports FROM PUBLIC, anon, authenticated/i);
     expect(migration).toMatch(/GRANT ALL PRIVILEGES ON TABLE public\.reports TO service_role/i);
-    expect(migration).toContain("GRANT ALL PRIVILEGES ON public.user_blocks TO service_role;");
+    expect(migration.replace(/\s+/g, " ")).toContain("GRANT ALL PRIVILEGES ON public.user_blocks TO service_role;");
     expect(migration).toMatch(/NEW\.status := 'pending'/i);
   });
 

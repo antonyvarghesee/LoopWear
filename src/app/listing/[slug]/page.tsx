@@ -16,6 +16,9 @@ import { sellerProfileHref } from "@/lib/validations/seller-profile";
 import { BuyNowButton } from "@/components/listings/buy-now-button";
 import { ReviewDisplay } from "@/components/reviews/review-display";
 import { getPublicSellerReviews, type PublicReview } from "@/services/reviews";
+import { getUserBlockState } from "@/services/trust-safety";
+import { ReportButton } from "@/components/trust-safety/report-button";
+import { BlockUserButton } from "@/components/trust-safety/block-user-button";
 
 const getCachedListing = cache(getActiveListingBySlug);
 
@@ -43,6 +46,15 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
   if (user) favorite = (await getFavoriteListingIds([listing.id])).includes(listing.id);
   const seller = listing.profiles;
   const sellerHref = seller?.username ? sellerProfileHref(seller.username) : null;
+  let sellerBlocked = false;
+  let blockStateUnavailable = false;
+  if (user && user.id !== listing.seller_id) {
+    try {
+      sellerBlocked = await getUserBlockState(listing.seller_id);
+    } catch {
+      blockStateUnavailable = true;
+    }
+  }
   let reviews: PublicReview[] = [];
   let reviewsUnavailable = false;
   if (seller?.username) {
@@ -85,6 +97,14 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
             <div className="flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{(seller?.full_name || seller?.username || "LW").slice(0, 2).toUpperCase()}</span><div>{sellerHref ? <Link href={sellerHref} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="flex items-center gap-1 text-sm font-semibold">{seller?.full_name || seller?.username}{seller?.is_verified && <ShieldCheck className="size-4 text-emerald-600" aria-label="Verified seller" />}</p><p className="text-xs text-muted-foreground">@{seller?.username}</p></Link> : <><p className="text-sm font-semibold">LoopWear member</p><p className="text-xs text-muted-foreground">@member</p></>}</div></div>
             {seller && <div className="flex items-center gap-1 text-sm"><Star className="size-4 fill-amber-400 text-amber-400" /><span>{Number(seller.rating).toFixed(1)}</span><span className="text-muted-foreground">({seller.review_count})</span></div>}
           </div>
+          {user && seller && user.id !== listing.seller_id && !blockStateUnavailable && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <ReportButton targetType="listing" targetId={listing.id} label="Report listing" />
+              <ReportButton targetType="user" targetId={listing.seller_id} label="Report seller" />
+              <BlockUserButton userId={listing.seller_id} initiallyBlocked={sellerBlocked} />
+            </div>
+          )}
+          {blockStateUnavailable && <p role="status" className="mt-3 text-xs text-muted-foreground">Block controls are temporarily unavailable.</p>}
         </section>
         <section className="mt-6 space-y-3" aria-labelledby="listing-reviews-heading">
           <div>
