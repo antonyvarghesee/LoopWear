@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const { createSupabaseServerClient, getCurrentUser } = vi.hoisted(() => ({
+const { createSupabaseServerClient, getCurrentUser, isCurrentUserSuspended } = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   getCurrentUser: vi.fn(),
+  isCurrentUserSuspended: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
+vi.mock("@/services/moderation-enforcement", () => ({ isCurrentUserSuspended }));
 
 import { validatePurchase } from "@/services/purchases";
 
@@ -49,6 +51,7 @@ describe("purchase validation service", () => {
   beforeEach(() => {
     createSupabaseServerClient.mockReset();
     getCurrentUser.mockReset();
+    isCurrentUserSuspended.mockReset().mockResolvedValue(false);
   });
 
   it("rejects an unauthenticated buyer before querying Supabase", async () => {
@@ -75,6 +78,16 @@ describe("purchase validation service", () => {
       success: false,
       error: "You cannot purchase your own listing.",
     });
+  });
+
+  it("rejects purchase initiation for a suspended buyer before listing lookup", async () => {
+    setup();
+    isCurrentUserSuspended.mockResolvedValue(true);
+    expect(await validatePurchase(listingId)).toEqual({
+      success: false,
+      error: "Your account cannot start a purchase right now.",
+    });
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
   });
 
   it.each(["DRAFT", "ARCHIVED", "REMOVED"])("rejects inactive listing status %s", async (status) => {

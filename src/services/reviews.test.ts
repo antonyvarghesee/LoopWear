@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createSupabaseServerClient, getCurrentUser, insert, rpc } = vi.hoisted(() => ({
+const { createSupabaseServerClient, getCurrentUser, insert, rpc, isCurrentUserSuspended } = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   getCurrentUser: vi.fn(),
   insert: vi.fn(),
   rpc: vi.fn(),
+  isCurrentUserSuspended: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -13,6 +14,7 @@ vi.mock("@/services/auth", () => ({ getCurrentUser }));
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: vi.fn(),
 }));
+vi.mock("@/services/moderation-enforcement", () => ({ isCurrentUserSuspended }));
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -29,6 +31,7 @@ describe("review service", () => {
     insert.mockReset().mockResolvedValue({ error: null });
     rpc.mockReset().mockResolvedValue({ data: [], error: null });
     getCurrentUser.mockReset().mockResolvedValue({ id: buyerId });
+    isCurrentUserSuspended.mockReset().mockResolvedValue(false);
     createSupabaseServerClient.mockReset().mockResolvedValue({
       from: vi.fn(() => ({ insert })),
       rpc,
@@ -85,6 +88,15 @@ describe("review service", () => {
     await expect(submitPurchaseReview({ order_id: orderId, rating: 5 })).resolves.toEqual({
       success: false,
       error: "Sign in to leave a review.",
+    });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects review submissions for a suspended user", async () => {
+    isCurrentUserSuspended.mockResolvedValue(true);
+    await expect(submitPurchaseReview({ order_id: orderId, rating: 5 })).resolves.toEqual({
+      success: false,
+      error: "Your account cannot submit reviews right now.",
     });
     expect(insert).not.toHaveBeenCalled();
   });

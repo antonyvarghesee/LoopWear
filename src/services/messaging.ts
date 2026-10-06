@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { getCurrentUser } from "@/services/auth";
 import { getActiveListingPrimaryImageUrls } from "@/services/listing-images";
 import { notifyMessageSent } from "@/services/notification-events";
+import { isCurrentUserSuspended } from "@/services/moderation-enforcement";
 import {
   MESSAGE_PAGE_SIZE,
   messagingIdSchema,
@@ -157,6 +158,9 @@ export async function getOrCreateConversation(listingId: unknown): Promise<{ suc
   if (!parsed.success) return { success: false, error: "This listing could not be found." };
   const context = await messagingContext();
   if (!context) return { success: false, error: "Sign in to message this seller." };
+  if (await isCurrentUserSuspended(context.supabase)) {
+    return { success: false, error: "Messaging is unavailable for this account." };
+  }
 
   const { data: listing, error: listingError } = await context.supabase.from("listings")
     .select("id,seller_id").eq("id", parsed.data).eq("status", "ACTIVE").maybeSingle();
@@ -184,6 +188,9 @@ export async function sendMessage(conversationId: unknown, body: unknown): Promi
   const context = await messagingContext();
   if (!context) return { success: false, error: "Sign in to send messages." };
   try {
+    if (await isCurrentUserSuspended(context.supabase)) {
+      return { success: false, error: "Messaging is unavailable for this account." };
+    }
     if (!await getAuthorizedConversationRow(context, parsed.data.conversationId)) return { success: false, error: "This conversation could not be found." };
     const { data: canSend, error: permissionError } = await context.supabase.rpc(
       "can_send_conversation_message",

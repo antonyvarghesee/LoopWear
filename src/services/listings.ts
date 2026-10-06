@@ -6,6 +6,7 @@ import type { ListingBrand, ListingCategory, ListingRecord, ListingStatus } from
 import { getCurrentUser } from "@/services/auth";
 import { getOwnListingPrimaryImageUrls } from "@/services/listing-images";
 import { getPublicSellerProfilesForListings } from "@/services/seller-profiles";
+import { isCurrentUserSuspended } from "@/services/moderation-enforcement";
 
 const LISTING_COLUMNS = "id, seller_id, title, slug, description, category_id, brand_id, gender, size, condition, color, material, original_price, selling_price, location, status, created_at, updated_at, categories!listings_category_id_fkey(name), brands!listings_brand_id_fkey(name)";
 const PUBLIC_LISTING_COLUMNS = LISTING_COLUMNS;
@@ -88,6 +89,7 @@ export async function getListingFormOptions(): Promise<{ categories: ListingCate
 export async function createDraftListing(input: unknown): Promise<ListingResult<ListingRecord>> {
   const seller = await currentSeller();
   if (!seller) return { success: false, error: "Sign in to create a listing." };
+  if (await isCurrentUserSuspended()) return { success: false, error: "Your account cannot manage listings right now." };
   const parsed = createListingSchema.safeParse(input);
   if (!parsed.success) return validationError(parsed.error);
 
@@ -104,6 +106,7 @@ export async function createDraftListing(input: unknown): Promise<ListingResult<
 export async function updateOwnListing(id: string, input: unknown): Promise<ListingResult<ListingRecord>> {
   const seller = await currentSeller();
   if (!seller) return { success: false, error: "Sign in to update a listing." };
+  if (await isCurrentUserSuspended()) return { success: false, error: "Your account cannot manage listings right now." };
   const parsed = createListingSchema.safeParse(input);
   if (!parsed.success) return validationError(parsed.error);
 
@@ -136,6 +139,7 @@ export async function updateOwnListing(id: string, input: unknown): Promise<List
 async function transitionOwnListing(id: string, target: ListingStatus): Promise<ListingResult<ListingRecord>> {
   const seller = await currentSeller();
   if (!seller) return { success: false, error: "Sign in to manage your listings." };
+  if (await isCurrentUserSuspended()) return { success: false, error: "Your account cannot manage listings right now." };
   const supabase = await createSupabaseServerClient();
   const { data: current, error: lookupError } = await supabase
     .from("listings")

@@ -7,6 +7,7 @@ import {
   type ReviewSubmission,
 } from "@/lib/validations/reviews";
 import { getCurrentUser } from "@/services/auth";
+import { isCurrentUserSuspended } from "@/services/moderation-enforcement";
 
 export type PublicReview = {
   listing_id: string;
@@ -143,6 +144,9 @@ export async function submitPurchaseReview(
   try {
     const user = await getCurrentUser();
     if (!user) return { success: false, error: "Sign in to leave a review." };
+    if (await isCurrentUserSuspended()) {
+      return { success: false, error: "Your account cannot submit reviews right now." };
+    }
 
     const supabase = await createSupabaseServerClient();
     const submission: ReviewSubmission = parsed.data;

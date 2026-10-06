@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createSupabaseServerClient, getCurrentUser, notifyMessageSent } = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn(), getCurrentUser: vi.fn(), notifyMessageSent: vi.fn() }));
+const { createSupabaseServerClient, getCurrentUser, notifyMessageSent, isCurrentUserSuspended } = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn(), getCurrentUser: vi.fn(), notifyMessageSent: vi.fn(), isCurrentUserSuspended: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
 vi.mock("@/services/notification-events", () => ({ notifyMessageSent }));
+vi.mock("@/services/moderation-enforcement", () => ({ isCurrentUserSuspended }));
 vi.mock("@/services/listing-images", () => ({ getActiveListingPrimaryImageUrls: vi.fn().mockResolvedValue({}) }));
 
 import { getConversation, getConversationMessages, getConversations, getOrCreateConversation, markConversationAsRead, sendMessage } from "@/services/messaging";
@@ -55,6 +56,7 @@ function setup(options: {
   const from = vi.fn((table: string) => table === "listings" ? listingQuery : messageQuery);
   createSupabaseServerClient.mockResolvedValue({ from, rpc });
   getCurrentUser.mockResolvedValue(options.userId === null ? null : { id: options.userId ?? buyerId });
+  isCurrentUserSuspended.mockResolvedValue(false);
   return { from, rpc, listingQuery, messageQuery, authorizedConversation };
 }
 
@@ -63,6 +65,7 @@ describe("messaging service", () => {
     createSupabaseServerClient.mockReset();
     getCurrentUser.mockReset();
     notifyMessageSent.mockReset().mockResolvedValue(undefined);
+    isCurrentUserSuspended.mockReset().mockResolvedValue(false);
   });
 
   it("requires authentication to start a conversation", async () => {
@@ -119,6 +122,15 @@ describe("messaging service", () => {
     setup();
     expect(await getOrCreateConversation("bad-id")).toMatchObject({ success: false });
     expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("blocks suspended users from creating conversations and sending messages", async () => {
+    const { rpc, messageQuery } = setup();
+    isCurrentUserSuspended.mockResolvedValue(true);
+    expect(await getOrCreateConversation(listingId)).toMatchObject({ success: false });
+    expect(await sendMessage(conversationId, "Hello")).toMatchObject({ success: false });
+    expect(rpc).not.toHaveBeenCalledWith("get_or_create_listing_conversation", expect.anything());
+    expect(messageQuery.insert).not.toHaveBeenCalled();
   });
 
   it("does not read messages when the current user is not a conversation participant", async () => {

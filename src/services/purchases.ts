@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/services/auth";
+import { isCurrentUserSuspended } from "@/services/moderation-enforcement";
 
 const listingIdSchema = z.string().uuid();
 
@@ -27,6 +28,9 @@ export async function validatePurchase(listingId: unknown): Promise<PurchaseVali
   const buyer = await getCurrentUser();
   if (!buyer) {
     return { success: false, error: "Sign in to purchase this listing." };
+  }
+  if (await isCurrentUserSuspended()) {
+    return { success: false, error: "Your account cannot start a purchase right now." };
   }
   if (!isSupabaseConfigured()) {
     throw new Error("Purchase validation is temporarily unavailable.");

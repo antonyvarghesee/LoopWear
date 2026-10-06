@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createSupabaseServerClient, getCurrentUser } = vi.hoisted(() => ({
+const { createSupabaseServerClient, getCurrentUser, isCurrentUserSuspended } = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   getCurrentUser: vi.fn(),
+  isCurrentUserSuspended: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({ isSupabaseConfigured: () => true }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
+vi.mock("@/services/moderation-enforcement", () => ({ isCurrentUserSuspended }));
 vi.mock("@/services/listing-images", () => ({ getOwnListingPrimaryImageUrls: vi.fn() }));
 
 import {
@@ -55,6 +57,7 @@ describe("listing service authorization and lifecycle", () => {
   beforeEach(() => {
     createSupabaseServerClient.mockReset();
     getCurrentUser.mockReset();
+    isCurrentUserSuspended.mockReset().mockResolvedValue(false);
   });
 
   it("creates a draft with a server-derived seller and a generated slug hint", async () => {
@@ -75,6 +78,18 @@ describe("listing service authorization and lifecycle", () => {
     getCurrentUser.mockResolvedValue(null);
     const result = await createDraftListing(listingInput);
     expect(result.success).toBe(false);
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("blocks suspended users from creating, editing, and transitioning listings", async () => {
+    getCurrentUser.mockResolvedValue({ id: "seller-a" });
+    isCurrentUserSuspended.mockResolvedValue(true);
+
+    await expect(createDraftListing(listingInput)).resolves.toMatchObject({ success: false });
+    await expect(updateOwnListing("00000000-0000-4000-8000-000000000010", listingInput))
+      .resolves.toMatchObject({ success: false });
+    await expect(publishOwnListing("00000000-0000-4000-8000-000000000010"))
+      .resolves.toMatchObject({ success: false });
     expect(createSupabaseServerClient).not.toHaveBeenCalled();
   });
 
