@@ -126,9 +126,9 @@ describe("Stripe Checkout Session creation", () => {
       ],
       success_url: "https://loopwear.test/?checkout=success&session_id={CHECKOUT_SESSION_ID}",
       cancel_url: "https://loopwear.test/?checkout=cancelled",
-      metadata: { listing_id: listingId, buyer_id: buyerId },
+      metadata: { listing_id: listingId, buyer_id: buyerId, seller_id: sellerId },
     });
-    expect(Object.keys(sessionOptions.metadata ?? {})).toEqual(["listing_id", "buyer_id"]);
+    expect(Object.keys(sessionOptions.metadata ?? {})).toEqual(["listing_id", "buyer_id", "seller_id"]);
     expect(sessionOptions.line_items).toHaveLength(1);
   });
 

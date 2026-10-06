@@ -51,6 +51,7 @@ export async function createCheckoutSession(listingId: unknown): Promise<Checkou
       metadata: {
         listing_id: validatedListingId,
         buyer_id: buyerId,
+        seller_id: currentValidation.data.sellerId,
       },
     });
 
