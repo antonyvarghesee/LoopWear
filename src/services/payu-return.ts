@@ -50,6 +50,12 @@ export async function handlePayUReturn(request: Request): Promise<Response> {
         true,
       );
     }
+    if (result.status === "refund_required") {
+      return returnPage(
+        "Payment requires refund review",
+        "PayU reported a successful payment, but this purchase could not be completed. Your order was not confirmed. Please contact LoopWear support to reconcile the payment.",
+      );
+    }
     if (result.status === "failure") {
       return returnPage("Payment not completed", "PayU returned a verified unsuccessful payment response.");
     }

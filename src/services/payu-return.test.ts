@@ -47,6 +47,17 @@ describe("PayU return handler", () => {
     expect(body).toContain("has not confirmed your order");
   });
 
+  it("explains that a verified payment requires manual refund reconciliation when the listing became ineligible", async () => {
+    verifyPayUResponse.mockResolvedValueOnce({ status: "refund_required" });
+    const response = await successReturn(payUReturnRequest());
+    const body = await response.text();
+
+    expect(body).toContain("Payment requires refund review");
+    expect(body).toContain("contact LoopWear support to reconcile the payment");
+    expect(body).toContain("has not confirmed your order");
+    expect(body).not.toContain("listing is sold");
+  });
+
   it("shows a generic verification error for invalid or replayed responses", async () => {
     verifyPayUResponse.mockResolvedValueOnce({ status: "invalid" });
     const invalid = await failureReturn(payUReturnRequest());

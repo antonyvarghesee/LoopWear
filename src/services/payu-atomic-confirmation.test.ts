@@ -6,6 +6,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20261009000000_payu_atomic_confirmation.sql"),
   "utf8",
 );
+const moderationPurchaseFix = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261021000000_suspended_seller_purchase_protection.sql"),
+  "utf8",
+);
 const providerNeutralPayments = readFileSync(
   join(process.cwd(), "supabase/migrations/20261007000000_provider_neutral_payments.sql"),
   "utf8",
@@ -15,6 +19,9 @@ const purchaseSecurity = readFileSync(
   "utf8",
 );
 const confirmation = migration.split(
+  "CREATE OR REPLACE FUNCTION public.confirm_provider_purchase",
+)[1] ?? "";
+const protectedConfirmation = moderationPurchaseFix.split(
   "CREATE OR REPLACE FUNCTION public.confirm_provider_purchase",
 )[1] ?? "";
 
@@ -84,5 +91,57 @@ describe("PayU atomic confirmation migration", () => {
       confirmation.lastIndexOf("SET response_state = 'confirmed'"),
     );
     expect(confirmation).toMatch(/UPDATE public\.payment_webhook_events SET outcome = 'processed'[\s\S]*?RETURN 'processed'/i);
+  });
+
+  it("rechecks listing moderation and seller suspension in the locked confirmation transaction", () => {
+    expect(protectedConfirmation).toMatch(/FROM public\.listings[\s\S]*?FOR UPDATE/i);
+    expect(protectedConfirmation).toMatch(/FROM public\.profiles WHERE id = listing_row\.seller_id FOR SHARE/i);
+    expect(protectedConfirmation).toMatch(/listing_row\.status <> 'ACTIVE'[\s\S]*?NOT public\.is_listing_publicly_available\(p_listing_id\)/i);
+    expect(protectedConfirmation).toMatch(/listing_state\.moderation_state = 'hidden'/i);
+    expect(protectedConfirmation).toMatch(/seller_state\.moderation_state = 'suspended'/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.response_state NOT IN \('pending', 'verified_success'\)/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.expires_at <= NOW\(\)/i);
+    expect(moderationPurchaseFix).toMatch(/REVOKE ALL ON FUNCTION public\.confirm_provider_purchase[\s\S]*?FROM PUBLIC, anon, authenticated, service_role[\s\S]*?GRANT EXECUTE ON FUNCTION public\.confirm_provider_purchase[\s\S]*?TO service_role/i);
+  });
+
+  it("records a verified success needing manual refund review without selling the listing or creating an order", () => {
+    const ineligiblePath = protectedConfirmation.split(
+      "IF NOT FOUND OR listing_row.status <> 'ACTIVE'",
+    )[1]?.split("IF listing_row.selling_price * 100 <> p_amount_minor")[0] ?? "";
+
+    expect(moderationPurchaseFix).toMatch(/outcome IN \('processing', 'processed', 'duplicate', 'rejected', 'refund_required'\)/i);
+    expect(moderationPurchaseFix).toMatch(/'confirmed', 'refund_required'/i);
+    expect(ineligiblePath).toMatch(/SET outcome = 'refund_required'/i);
+    expect(ineligiblePath).toMatch(/SET response_state = 'refund_required'/i);
+    expect(ineligiblePath).toMatch(/RETURN 'refund_required'/i);
+    expect(ineligiblePath).not.toMatch(/SET status = 'SOLD'|INSERT INTO public\.(?:orders|payments)/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.response_state = 'refund_required'[\s\S]*?RETURN 'refund_required'/i);
+    expect(protectedConfirmation).toMatch(/SET status = 'SOLD'[\s\S]*?INSERT INTO public\.orders[\s\S]*?INSERT INTO public\.payments[\s\S]*?SET response_state = 'confirmed'/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.response_state = 'confirmed'[\s\S]*?RETURN 'duplicate_confirmed'/i);
+    expect(protectedConfirmation).toMatch(/listing_row\.selling_price \* 100 <> p_amount_minor/i);
+    expect(protectedConfirmation).toMatch(/IF listing_row\.selling_price \* 100 <> p_amount_minor THEN[\s\S]*?SET outcome = 'refund_required'[\s\S]*?SET response_state = 'refund_required'[\s\S]*?RETURN 'refund_required'/i);
+  });
+
+  it("retains expired successful attempts for verification but never confirms an expired purchase", () => {
+    const attemptLookup = moderationPurchaseFix.split(
+      "CREATE OR REPLACE FUNCTION public.get_provider_checkout_attempt",
+    )[1]?.split("ALTER FUNCTION public.get_provider_checkout_attempt")[0] ?? "";
+
+    expect(attemptLookup).toMatch(/attempts\.response_state IN \([\s\S]*?'pending', 'verified_success'[\s\S]*?'refund_required'/i);
+    expect(protectedConfirmation).toMatch(/IF is_payu THEN[\s\S]*?attempt_row\.expires_at <= NOW\(\)[\s\S]*?SET outcome = 'refund_required'[\s\S]*?SET response_state = 'refund_required'[\s\S]*?RETURN 'refund_required'/i);
+  });
+
+  it("retains eligible-payment, amount verification, and idempotency protections in the replacement RPC", () => {
+    expect(protectedConfirmation).toMatch(/attempt_row\.listing_id <> p_listing_id/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.buyer_id <> p_buyer_id/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.seller_id <> p_seller_id/i);
+    expect(protectedConfirmation).toMatch(/attempt_row\.amount <> p_amount_minor::NUMERIC \/ 100/i);
+    expect(protectedConfirmation).toMatch(/LOWER\(attempt_row\.currency\) <> 'inr'/i);
+    expect(protectedConfirmation).toMatch(/pg_advisory_xact_lock/i);
+    expect(protectedConfirmation).toMatch(/ON CONFLICT \(payment_provider, event_id\) DO NOTHING/i);
+    expect(protectedConfirmation).toMatch(/RETURN 'duplicate_confirmed'/i);
+    expect(protectedConfirmation).toMatch(/orders\.status = 'paid'[\s\S]*?payments\.status = 'succeeded'/i);
+    expect(protectedConfirmation).toMatch(/auth\.role\(\) IS DISTINCT FROM 'service_role'/i);
+    expect(protectedConfirmation).toMatch(/SET search_path = pg_catalog, public/i);
   });
 });

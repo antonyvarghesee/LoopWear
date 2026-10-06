@@ -20,6 +20,7 @@ export type PayUPaymentAttempt = {
 export type PayUConfirmationResult =
   | "processed"
   | "duplicate_confirmed"
+  | "refund_required"
   | "rejected";
 
 export async function getPayUPaymentAttempt(
@@ -69,6 +70,7 @@ export async function confirmPayUPaymentAttempt(
     }
     return data;
   }
+  if (data === "refund_required") return data;
   return "rejected";
 }
 

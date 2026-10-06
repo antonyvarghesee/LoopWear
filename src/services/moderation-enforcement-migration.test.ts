@@ -6,6 +6,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20261020000000_moderation_backend_enforcement.sql"),
   "utf8",
 );
+const suspendedSellerPurchaseFix = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261021000000_suspended_seller_purchase_protection.sql"),
+  "utf8",
+);
 
 describe("Phase 14B-2 database enforcement contract", () => {
   it("filters moderated listings from direct and definer-based public reads", () => {
@@ -28,6 +32,36 @@ describe("Phase 14B-2 database enforcement contract", () => {
     expect(migration).toMatch(/FUNCTION public\.prepare_purchase_review\(\)[\s\S]*?public\.is_current_user_suspended\(\)/i);
     expect(migration).toMatch(/CREATE POLICY "Buyers can create reviews for completed purchases"[\s\S]*?NOT public\.is_current_user_suspended\(\)/i);
     expect(migration).toMatch(/FUNCTION public\.register_provider_checkout_attempt[\s\S]*?moderation_state = 'suspended'/i);
+  });
+
+  it("keeps active clear listings available for normal or restored sellers and hides suspended sellers", () => {
+    const availability = suspendedSellerPurchaseFix.split(
+      "CREATE OR REPLACE FUNCTION public.is_listing_publicly_available",
+    )[1]?.split("ALTER FUNCTION public.is_listing_publicly_available")[0] ?? "";
+
+    expect(availability).toMatch(/listing\.status = 'ACTIVE'/i);
+    expect(availability).toMatch(/AND NOT EXISTS \([\s\S]*?listing_moderation[\s\S]*?moderation_state = 'hidden'/i);
+    expect(availability).toMatch(/AND NOT EXISTS \([\s\S]*?user_moderation[\s\S]*?seller_state\.user_id = listing\.seller_id[\s\S]*?moderation_state = 'suspended'/i);
+    expect(availability).not.toMatch(/moderation_state\s*<>\s*'normal'/i);
+    expect(availability).not.toMatch(/UPDATE public\.listings/i);
+    expect(migration).toMatch(/p_moderation_state NOT IN \('normal', 'suspended'\)/i);
+
+    const checkoutRegistration = suspendedSellerPurchaseFix.split(
+      "CREATE OR REPLACE FUNCTION public.register_provider_checkout_attempt",
+    )[1]?.split("ALTER FUNCTION public.register_provider_checkout_attempt")[0] ?? "";
+    expect(checkoutRegistration).toMatch(/FROM public\.profiles WHERE id = listing_row\.seller_id FOR SHARE/i);
+    expect(checkoutRegistration).toMatch(/public\.is_listing_publicly_available\(p_listing_id\)/i);
+    expect(checkoutRegistration).toMatch(/buyer_state\.moderation_state = 'suspended'/i);
+
+    const conversationCreation = suspendedSellerPurchaseFix.split(
+      "CREATE OR REPLACE FUNCTION public.get_or_create_listing_conversation",
+    )[1]?.split("ALTER FUNCTION public.get_or_create_listing_conversation")[0] ?? "";
+    expect(conversationCreation).toMatch(/FROM public\.profiles WHERE id = listing_seller_id FOR SHARE/i);
+    expect(conversationCreation).toMatch(/public\.is_listing_publicly_available\(p_listing_id\)/i);
+    expect(conversationCreation).toMatch(/seller_state\.moderation_state = 'suspended'/i);
+
+    expect(suspendedSellerPurchaseFix).toMatch(/SET search_path = pg_catalog, public[\s\S]*?SET row_security = off[\s\S]*?CREATE OR REPLACE FUNCTION public\.register_provider_checkout_attempt/i);
+    expect(suspendedSellerPurchaseFix).toMatch(/REVOKE ALL ON FUNCTION public\.register_provider_checkout_attempt[\s\S]*?FROM PUBLIC, anon, authenticated, service_role[\s\S]*?GRANT EXECUTE ON FUNCTION public\.register_provider_checkout_attempt[\s\S]*?TO service_role/i);
   });
 
   it("keeps account moderation administrator-bound and prevents self-moderation", () => {

@@ -196,6 +196,19 @@ describe("PayU response hash and verification", () => {
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });
 
+  it("reports an already recorded refund-required payment even if its listing is no longer present", async () => {
+    getPayUPaymentAttempt.mockResolvedValueOnce({
+      ...trustedAttempt(),
+      response_state: "refund_required",
+      current_selling_price: null,
+    });
+    confirmPayUPaymentAttempt.mockResolvedValueOnce("refund_required");
+
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "refund_required" });
+    expect(confirmPayUPaymentAttempt).toHaveBeenCalledOnce();
+    expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
+  });
+
   it("rejects a failed atomic confirmation without claiming purchase success", async () => {
     confirmPayUPaymentAttempt.mockResolvedValueOnce("rejected");
 
@@ -217,13 +230,25 @@ describe("PayU response hash and verification", () => {
     expect(consumePayUPaymentAttempt).toHaveBeenCalledOnce();
   });
 
-  it("rejects the response if the current database listing price no longer matches", async () => {
+  it("sends a verified success with a changed database price to atomic refund reconciliation", async () => {
     getPayUPaymentAttempt.mockResolvedValueOnce({
       ...trustedAttempt(),
       current_selling_price: "130.00",
     });
+    confirmPayUPaymentAttempt.mockResolvedValueOnce("refund_required");
 
-    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "invalid" });
+    await expect(verifyPayUResponse(signedResponse())).resolves.toEqual({ status: "refund_required" });
+    expect(confirmPayUPaymentAttempt).toHaveBeenCalledOnce();
+    expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a failure response if the current database listing price no longer matches", async () => {
+    getPayUPaymentAttempt.mockResolvedValueOnce({
+      ...trustedAttempt(responseFields("failure")),
+      current_selling_price: "130.00",
+    });
+
+    await expect(verifyPayUResponse(signedResponse("failure"))).resolves.toEqual({ status: "invalid" });
     expect(confirmPayUPaymentAttempt).not.toHaveBeenCalled();
     expect(consumePayUPaymentAttempt).not.toHaveBeenCalled();
   });

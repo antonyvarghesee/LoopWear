@@ -62,6 +62,12 @@ describe("PayU atomic confirmation RPC adapter", () => {
     expect(notifyPurchaseConfirmed).toHaveBeenCalledWith("payu", attempt.provider_transaction_id);
   });
 
+  it("surfaces an ineligible successful payment for refund reconciliation without sending a confirmation notification", async () => {
+    rpc.mockResolvedValueOnce({ data: "refund_required", error: null });
+    await expect(confirmPayUPaymentAttempt(attempt)).resolves.toBe("refund_required");
+    expect(notifyPurchaseConfirmed).not.toHaveBeenCalled();
+  });
+
   it("keeps a confirmed purchase successful if notification generation fails", async () => {
     notifyPurchaseConfirmed.mockRejectedValueOnce(new Error("notification insert failed"));
     await expect(confirmPayUPaymentAttempt(attempt)).resolves.toBe("processed");

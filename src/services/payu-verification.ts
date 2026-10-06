@@ -9,6 +9,7 @@ import {
 
 export type PayUVerificationResult =
   | { status: "success" }
+  | { status: "refund_required" }
   | { status: "failure" }
   | { status: "cancelled" }
   | { status: "duplicate" }
@@ -119,14 +120,17 @@ export async function verifyPayUResponse(
     }
 
     const expectedAmount = normalizeAmount(attempt.amount);
+    const refundRequired = attempt.response_state === "refund_required";
+    const providerReportsSuccess = fields.status.toLowerCase() === "success";
     const currentListingAmount = attempt.current_selling_price === null
       ? null
       : normalizeAmount(attempt.current_selling_price);
+    const confirmationMayNeedRefund = refundRequired || providerReportsSuccess;
     if (
       !expectedAmount
-      || !currentListingAmount
+      || (!confirmationMayNeedRefund && !currentListingAmount)
       || fields.amount !== expectedAmount
-      || currentListingAmount !== expectedAmount
+      || (!confirmationMayNeedRefund && currentListingAmount !== expectedAmount)
       || fields.productinfo !== attempt.productinfo
       || fields.firstname !== attempt.firstname
       || fields.email !== attempt.email
@@ -139,7 +143,7 @@ export async function verifyPayUResponse(
     ) {
       return { status: "invalid" };
     }
-    if (!["pending", "verified_success", "confirmed"].includes(attempt.response_state)) {
+    if (!["pending", "verified_success", "confirmed", "refund_required"].includes(attempt.response_state)) {
       return { status: "invalid" };
     }
 
@@ -166,6 +170,7 @@ export async function verifyPayUResponse(
 
     if (verifiedState === "verified_success") {
       const confirmation = await confirmPayUPaymentAttempt(attempt);
+      if (confirmation === "refund_required") return { status: "refund_required" };
       return confirmation === "processed" || confirmation === "duplicate_confirmed"
         ? { status: "success" }
         : { status: "invalid" };
