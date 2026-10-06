@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Heart, List, LogOut, Menu, MessageCircle, PlusCircle, UserRound, X } from "lucide-react";
+import { Heart, List, LogOut, Menu, MessageCircle, PackageCheck, PlusCircle, UserRound, X } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 
 const links = [
@@ -22,6 +22,7 @@ export function HeaderMobileNav({ authenticated }: { authenticated: boolean }) {
       <nav className="flex flex-col gap-1">{links.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">{label}</Link>)}
         <Link href="/sell" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><PlusCircle className="size-4" />List an item</Link>
         {authenticated && <Link href="/settings/profile" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><UserRound className="size-4" />Account Settings</Link>}
+        {authenticated && <Link href="/dashboard/orders" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><PackageCheck className="size-4" />My Orders</Link>}
         {authenticated && <Link href="/dashboard/listings" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><List className="size-4" />My Listings</Link>}
         {authenticated && <Link href="/favorites" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><Heart className="size-4" />Favorites</Link>}
         {authenticated && <Link href="/messages" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><MessageCircle className="size-4" />Messages</Link>}

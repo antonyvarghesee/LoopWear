@@ -7,6 +7,10 @@ const migrationPath = join(
   "supabase/migrations/20261011000000_reviews_foundation.sql",
 );
 const migration = readFileSync(migrationPath, "utf8");
+const deliveredEligibilityMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261012000000_reviews_delivered_eligibility.sql"),
+  "utf8",
+);
 const initialSchema = readFileSync(
   join(process.cwd(), "supabase/migrations/20261004000000_initial_schema.sql"),
   "utf8",
@@ -48,6 +52,31 @@ describe("Phase 11A reviews migration contract", () => {
     expect(migration).toMatch(/purchase\.buyer_id <> purchase\.seller_id/i);
     expect(migration).toMatch(/NEW\.reviewer_id := order_row\.buyer_id[\s\S]*?NEW\.reviewee_id := order_row\.seller_id[\s\S]*?NEW\.listing_id := order_row\.listing_id/i);
     expect(migration).toMatch(/FOR SHARE OF purchase, listing, payment/i);
+  });
+
+  it("requires delivered status for new reviews while preserving the purchase authorization checks", () => {
+    expect(deliveredEligibilityMigration).toMatch(/CREATE OR REPLACE FUNCTION public\.prepare_purchase_review/i);
+    expect(deliveredEligibilityMigration).toMatch(/purchase\.status = 'delivered'/i);
+    expect(deliveredEligibilityMigration).not.toMatch(/purchase\.status\s+IN\s*\(/i);
+    expect(deliveredEligibilityMigration).toMatch(/payment\.status = 'succeeded'/i);
+    expect(deliveredEligibilityMigration).toMatch(/payment\.amount = purchase\.amount/i);
+    expect(deliveredEligibilityMigration).toMatch(/purchase\.buyer_id = auth\.uid\(\)/i);
+    expect(deliveredEligibilityMigration).toMatch(/purchase\.buyer_id <> purchase\.seller_id/i);
+    expect(deliveredEligibilityMigration).toMatch(/listing\.id = purchase\.listing_id[\s\S]*?listing\.seller_id = purchase\.seller_id/i);
+    expect(deliveredEligibilityMigration).toMatch(/NEW\.reviewer_id := order_row\.buyer_id[\s\S]*?NEW\.reviewee_id := order_row\.seller_id[\s\S]*?NEW\.listing_id := order_row\.listing_id/i);
+    expect(deliveredEligibilityMigration).toMatch(/FOR SHARE OF purchase, listing, payment/i);
+    expect(initialSchema).toMatch(/order_id UUID NOT NULL REFERENCES public\.orders\(id\) ON DELETE CASCADE UNIQUE/i);
+  });
+
+  it.each(["paid", "shipped"])("%s orders cannot pass the review status guard", (status) => {
+    const statusGuard = /AND purchase\.status\s*=\s*'([^']+)'/i.exec(deliveredEligibilityMigration);
+    expect(statusGuard?.[1]).toBe("delivered");
+    expect(statusGuard?.[1]).not.toBe(status);
+  });
+
+  it("allows only delivered orders that also have a succeeded matching payment", () => {
+    expect(deliveredEligibilityMigration).toMatch(/payment\.status = 'succeeded'[\s\S]*?payment\.amount = purchase\.amount/i);
+    expect(deliveredEligibilityMigration).toMatch(/purchase\.status = 'delivered'/i);
   });
 
   it("limits table access to authenticated users' own reviews and prevents browser-supplied identity fields", () => {

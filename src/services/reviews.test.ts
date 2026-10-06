@@ -124,4 +124,31 @@ describe("review service", () => {
     await expect(getReviewablePurchasesForSeller("seller_1")).resolves.toEqual([]);
     expect(createSupabaseAdminClient).not.toHaveBeenCalled();
   });
+
+  it("only queries delivered purchases for review eligibility", async () => {
+    const orderQuery = { data: [], error: null, eq: vi.fn() };
+    orderQuery.eq.mockReturnValue(orderQuery);
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { id: "seller-id" }, error: null });
+    const selectOrders = vi.fn().mockReturnValue(orderQuery);
+    const adminFrom = vi.fn((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ maybeSingle })),
+          })),
+        };
+      }
+      return { select: selectOrders };
+    });
+    vi.mocked(createSupabaseAdminClient).mockReturnValueOnce({ from: adminFrom } as never);
+
+    await expect(getReviewablePurchasesForSeller("seller_1")).resolves.toEqual([]);
+    expect(selectOrders).toHaveBeenCalledWith("id, listing_id, amount, status");
+    expect(adminFrom).toHaveBeenCalledWith("orders");
+    expect(orderQuery.eq.mock.calls).toEqual([
+      ["buyer_id", buyerId],
+      ["seller_id", "seller-id"],
+      ["status", "delivered"],
+    ]);
+  });
 });

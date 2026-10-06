@@ -42,6 +42,7 @@ export async function SiteHeader() {
             </summary>
             <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-border bg-background p-2 shadow-lg">
               <Link href="/settings/profile" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Account Settings</Link>
+              <Link href="/dashboard/orders" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">My Orders</Link>
               <Link href="/dashboard/listings" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">My Listings</Link>
               <Link href="/favorites" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Favorites</Link>
               <Link href="/messages" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted"><MessageCircle className="size-4" />Messages</Link>

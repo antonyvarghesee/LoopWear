@@ -75,7 +75,7 @@ export async function getReviewablePurchasesForSeller(
       .select("id, listing_id, amount, status")
       .eq("buyer_id", user.id)
       .eq("seller_id", seller.id)
-      .in("status", ["paid", "shipped", "delivered"]);
+      .eq("status", "delivered");
     if (ordersError) throw ordersError;
     if (!orders?.length) return [];
 
