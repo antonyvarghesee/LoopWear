@@ -18,7 +18,7 @@ Buyers can discover, favorite, message about, and purchase second-hand clothing.
 | Realtime | Supabase Realtime | Inbox updates without a dedicated broker |
 | Validation | Zod | Shared server/client schemas |
 | ORM | **Not Prisma** | Supabase SQL + typed queries are enough |
-| Payments | Stripe Test Mode | Card checkout without live charges |
+| Payments | PayU Test/UAT integration planned. | Provider-neutral payment foundation; PayU is not implemented |
 | Email | Resend | Transactional mail on a free tier |
 | Errors | Sentry | Production diagnostics |
 | Tests | Vitest, Playwright | Unit and browser coverage |
@@ -101,7 +101,7 @@ src/
   lib/
     env.ts             # Zod env schemas & Supabase helpers
     supabase/          # client, server, admin & middleware Supabase modules
-    stripe/            # payments (later)
+    payments/ # provider-neutral payment processing
     email/             # Resend (later)
     validations/       # request/form schemas
   services/            # domain logic
@@ -120,7 +120,7 @@ Initial migration table setup (`20261004000000_initial_schema.sql`):
 - `listings` & `listing_images` — seller listings & photo metadata
 - `favorites` — user favorited items
 - `conversations` & `messages` — messaging threads & Realtime delivery
-- `orders` & `payments` — checkout orders & Stripe PaymentIntents
+- `orders` & `payments` — provider-neutral purchase and payment records
 - `reviews` — post-purchase seller/item ratings
 - `reports` — trust & safety moderation items
 - `notifications` — user activity notifications

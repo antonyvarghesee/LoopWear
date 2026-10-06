@@ -13,7 +13,6 @@ import { MessageSellerButton } from "@/components/messaging/message-seller-butto
 import { getCurrentUser } from "@/services/auth";
 import { getFavoriteListingIds } from "@/services/favorites";
 import { sellerProfileHref } from "@/lib/validations/seller-profile";
-import { BuyNowButton } from "@/components/listings/buy-now-button";
 
 const getCachedListing = cache(getActiveListingBySlug);
 
@@ -56,7 +55,6 @@ export default async function ListingDetailPage({ params }: ListingRouteProps) {
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{listing.title}</h1>
         <div className="mt-4"><FavoriteButton listingId={listing.id} isFavorite={favorite} authenticated={Boolean(user)} loginHref={`/listing/${encodeURIComponent(listing.slug)}`} /><MessageSellerButton listingId={listing.id} slug={listing.slug} authenticated={Boolean(user)} isSeller={user?.id === listing.seller_id} /></div>
         <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-3xl font-bold">${Number(listing.selling_price).toFixed(2)}</span>{listing.original_price != null && <span className="text-base text-muted-foreground line-through">${Number(listing.original_price).toFixed(2)}</span>}</div>
-        {user && user.id !== listing.seller_id && listing.status === "ACTIVE" && <BuyNowButton listingId={listing.id} />}
         <p className="mt-6 whitespace-pre-line text-sm leading-7 text-muted-foreground">{listing.description}</p>
         <dl className="mt-7 grid grid-cols-2 gap-x-5 gap-y-4 rounded-2xl border border-border bg-card p-5 text-sm">
           <div><dt className="text-xs text-muted-foreground">Size</dt><dd className="mt-1 font-medium">{listing.size}</dd></div>

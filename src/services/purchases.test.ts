@@ -131,16 +131,8 @@ describe("purchase database security migration", () => {
     expect(listingMigration).toMatch(/NEW\.status = 'SOLD' AND auth\.uid\(\) IS NULL/);
   });
 
-  it("prevents duplicate unresolved listing orders and duplicate order payments while allowing cancelled/refunded retries", () => {
+  it("prevents duplicate unresolved listing orders while allowing cancelled/refunded retries", () => {
     const migration = readFileSync(migrationPath, "utf8");
     expect(migration).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS orders_one_unresolved_per_listing_idx[\s\S]*?ON public\.orders \(listing_id\)[\s\S]*?WHERE status NOT IN \('cancelled', 'refunded'\)/i);
-    expect(migration).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS orders_stripe_payment_intent_id_idx[\s\S]*?ON public\.orders \(stripe_payment_intent_id\)[\s\S]*?WHERE stripe_payment_intent_id IS NOT NULL/i);
-    expect(migration).not.toMatch(/UNIQUE INDEX[^;]*payments\s*\(\s*order_id\s*\)/i);
-
-    const initialSchema = readFileSync(
-      join(process.cwd(), "supabase/migrations/20261004000000_initial_schema.sql"),
-      "utf8",
-    );
-    expect(initialSchema).toMatch(/stripe_payment_intent_id TEXT NOT NULL UNIQUE/);
   });
 });

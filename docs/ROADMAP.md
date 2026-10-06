@@ -1,6 +1,6 @@
 # LoopWear roadmap
 
-Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Stripe Test Mode, Resend, Sentry, Vercel). No AWS. No paid add-ons unless requested.
+Work is sequenced so the app can ship on free-tier infrastructure (Supabase, PayU Test/UAT integration planned, Resend, Sentry, Vercel). No AWS. No paid add-ons unless requested.
 
 ## Phase 0 — Scaffold (Completed)
 
@@ -47,12 +47,12 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 - Supabase Realtime watches only INSERT events for the open conversation, and the messages SELECT RLS policy controls row delivery.
 - Migration: `supabase/migrations/20261004000008_messaging.sql`.
 
-## Phase 6 — Checkout and orders
+## Phase 6 — Payment provider integration (Planned)
 
-- Stripe Test Mode checkout
-- Webhooks to create/fulfill orders
+- Payment provider: PayU Test/UAT integration planned.
+- Implement provider checkout and verified webhook processing.
 - Order tracking for buyer and seller
-- Prices taken from the database only
+- Prices must be taken from the database only
 
 ## Phase 7 — Trust and safety
 
@@ -71,6 +71,6 @@ Work is sequenced so the app can ship on free-tier infrastructure (Supabase, Str
 ## Explicitly deferred
 
 - Prisma
-- Live Stripe keys
+- Live payment credentials
 - Native apps
 - Paid search, CDN, or queue products
