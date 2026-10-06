@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { notifyPurchaseConfirmed } from "@/services/notification-events";
 
 export type PayUPaymentAttempt = {
   payment_provider: string;
@@ -60,7 +61,14 @@ export async function confirmPayUPaymentAttempt(
     },
   );
   if (error) throw error;
-  if (data === "processed" || data === "duplicate_confirmed") return data;
+  if (data === "processed" || data === "duplicate_confirmed") {
+    try {
+      await notifyPurchaseConfirmed("payu", attempt.provider_transaction_id);
+    } catch {
+      console.error("Notification event generation failed: purchase confirmed.");
+    }
+    return data;
+  }
   return "rejected";
 }
 

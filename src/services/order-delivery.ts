@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/services/auth";
+import { notifyOrderDelivered } from "@/services/notification-events";
 
 const orderIdSchema = z.string().uuid();
 
@@ -53,7 +54,7 @@ export async function confirmOrderDelivery(input: unknown): Promise<DeliveryConf
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.rpc("confirm_order_delivery", {
+    const { data, error } = await supabase.rpc("confirm_order_delivery", {
       p_order_id: parsedOrderId.data,
     });
 
@@ -64,6 +65,13 @@ export async function confirmOrderDelivery(input: unknown): Promise<DeliveryConf
       return { success: false, error: "You are not authorized to confirm this order." };
     }
     if (error) throw error;
+    if (typeof data === "string") {
+      try {
+        await notifyOrderDelivered(data);
+      } catch {
+        console.error("Notification event generation failed: delivery confirmed.");
+      }
+    }
     return { success: true };
   } catch {
     console.error("Order delivery confirmation failed.");

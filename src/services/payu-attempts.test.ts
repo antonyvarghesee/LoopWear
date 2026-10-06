@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
+const { rpc, notifyPurchaseConfirmed } = vi.hoisted(() => ({ rpc: vi.fn(), notifyPurchaseConfirmed: vi.fn() }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({ rpc }),
 }));
+vi.mock("@/services/notification-events", () => ({ notifyPurchaseConfirmed }));
 
 import {
   confirmPayUPaymentAttempt,
@@ -30,6 +31,7 @@ const attempt: PayUPaymentAttempt = {
 describe("PayU atomic confirmation RPC adapter", () => {
   beforeEach(() => {
     rpc.mockReset().mockResolvedValue({ data: "processed", error: null });
+    notifyPurchaseConfirmed.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -51,11 +53,18 @@ describe("PayU atomic confirmation RPC adapter", () => {
       p_amount_minor: 12995,
       p_currency: "inr",
     });
+    expect(notifyPurchaseConfirmed).toHaveBeenCalledWith("payu", attempt.provider_transaction_id);
   });
 
   it("maps an already confirmed purchase to an idempotent success", async () => {
     rpc.mockResolvedValueOnce({ data: "duplicate_confirmed", error: null });
     await expect(confirmPayUPaymentAttempt(attempt)).resolves.toBe("duplicate_confirmed");
+    expect(notifyPurchaseConfirmed).toHaveBeenCalledWith("payu", attempt.provider_transaction_id);
+  });
+
+  it("keeps a confirmed purchase successful if notification generation fails", async () => {
+    notifyPurchaseConfirmed.mockRejectedValueOnce(new Error("notification insert failed"));
+    await expect(confirmPayUPaymentAttempt(attempt)).resolves.toBe("processed");
   });
 
   it("converts whole and fractional INR amounts exactly to paise", async () => {

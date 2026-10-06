@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createSupabaseServerClient, getCurrentUser } = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn(), getCurrentUser: vi.fn() }));
+const { createSupabaseServerClient, getCurrentUser, notifyMessageSent } = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn(), getCurrentUser: vi.fn(), notifyMessageSent: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
+vi.mock("@/services/notification-events", () => ({ notifyMessageSent }));
 vi.mock("@/services/listing-images", () => ({ getActiveListingPrimaryImageUrls: vi.fn().mockResolvedValue({}) }));
 
 import { getConversation, getConversationMessages, getConversations, getOrCreateConversation, markConversationAsRead, sendMessage } from "@/services/messaging";
@@ -58,7 +59,11 @@ function setup(options: {
 }
 
 describe("messaging service", () => {
-  beforeEach(() => { createSupabaseServerClient.mockReset(); getCurrentUser.mockReset(); });
+  beforeEach(() => {
+    createSupabaseServerClient.mockReset();
+    getCurrentUser.mockReset();
+    notifyMessageSent.mockReset().mockResolvedValue(undefined);
+  });
 
   it("requires authentication to start a conversation", async () => {
     const { listingQuery } = setup({ userId: null });
@@ -174,6 +179,21 @@ describe("messaging service", () => {
     expect(await sendMessage(conversationId, "  Hello seller  ")).toMatchObject({ success: true, message: { content: "Hello seller", is_own: true } });
     expect(messageQuery.insert).toHaveBeenCalledWith({ conversation_id: conversationId, content: "Hello seller" });
     expect(messageQuery.insert.mock.calls[0]?.[0]).not.toHaveProperty("sender_id");
+  });
+
+  it("generates a notification after inserting a message and isolates notification failures", async () => {
+    const { messageQuery } = setup();
+    notifyMessageSent.mockRejectedValueOnce(new Error("notification insert failed"));
+    await expect(sendMessage(conversationId, "Hello")).resolves.toMatchObject({ success: true });
+    expect(messageQuery.insert).toHaveBeenCalled();
+    expect(notifyMessageSent).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000005");
+  });
+
+  it("does not generate a notification when message insertion fails", async () => {
+    const { messageQuery } = setup();
+    messageQuery.single.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
+    await expect(sendMessage(conversationId, "Hello")).resolves.toMatchObject({ success: false });
+    expect(notifyMessageSent).not.toHaveBeenCalled();
   });
 
   it.each(["", "   ", "x".repeat(2001)])("rejects empty or oversized message bodies", async (body) => {

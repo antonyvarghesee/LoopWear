@@ -35,6 +35,7 @@ export type NotificationRelatedEntityType = (typeof NOTIFICATION_RELATED_ENTITY_
 export const createNotificationSchema = z.object({
   recipientId: z.string().uuid(),
   type: z.enum(NOTIFICATION_TYPES),
+  eventId: z.string().uuid().optional().nullable(),
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().min(1).max(2000),
   relatedEntityType: z.enum(NOTIFICATION_RELATED_ENTITY_TYPES).optional().nullable(),

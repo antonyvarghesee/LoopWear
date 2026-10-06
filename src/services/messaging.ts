@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getCurrentUser } from "@/services/auth";
 import { getActiveListingPrimaryImageUrls } from "@/services/listing-images";
+import { notifyMessageSent } from "@/services/notification-events";
 import {
   MESSAGE_PAGE_SIZE,
   messagingIdSchema,
@@ -202,6 +203,11 @@ export async function sendMessage(conversationId: unknown, body: unknown): Promi
     if (error || !data) {
       console.error("Message insert failed:", error ?? "No message returned");
       return { success: false, error: "Your message could not be sent. Please try again." };
+    }
+    try {
+      await notifyMessageSent(data.id);
+    } catch {
+      console.error("Notification event generation failed: message sent.");
     }
     return { success: true, message: { id: data.id, content: data.content, is_read: data.is_read, created_at: data.created_at, is_own: data.sender_id === context.user.id } };
   } catch (error) {

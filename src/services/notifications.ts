@@ -14,6 +14,7 @@ export type Notification = {
   id: string;
   user_id: string;
   type: StoredNotificationType;
+  event_id: string | null;
   title: string;
   message: string;
   link_url: string | null;
@@ -38,6 +39,7 @@ export async function createNotification(input: unknown): Promise<NotificationRe
       .insert({
         user_id: parsed.data.recipientId,
         type: parsed.data.type,
+        event_id: parsed.data.eventId ?? null,
         title: parsed.data.title,
         message: parsed.data.body,
         link_url: parsed.data.linkUrl ?? null,
@@ -47,6 +49,7 @@ export async function createNotification(input: unknown): Promise<NotificationRe
       .select("id")
       .maybeSingle();
     if (error || !data) {
+      if (error?.code === "23505" && parsed.data.eventId) return { success: true };
       console.error("Notification creation failed.");
       return { success: false, error: "The notification could not be created." };
     }
@@ -68,7 +71,7 @@ export async function listNotifications(input: unknown = {}): Promise<Notificati
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("notifications")
-      .select("id,user_id,type,title,message,link_url,related_entity_type,related_entity_id,is_read,created_at,read_at")
+      .select("id,user_id,type,event_id,title,message,link_url,related_entity_type,related_entity_id,is_read,created_at,read_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);

@@ -102,12 +102,29 @@ describe("notification validation and service", () => {
     expect(adminInsert).toHaveBeenCalledWith({
       user_id: userId,
       type: "delivery",
+      event_id: null,
       title: "Item received",
       message: "Your order was marked delivered.",
       link_url: null,
       related_entity_type: "order",
       related_entity_id: notificationId,
     });
+  });
+
+  it("treats an already-created idempotent event notification as success", async () => {
+    const { adminInsert } = setup();
+    adminInsert.mockReturnValueOnce({
+      select: vi.fn(() => ({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { code: "23505" } }),
+      })),
+    });
+    await expect(createNotification({
+      recipientId: userId,
+      type: "message",
+      eventId: notificationId,
+      title: "New message",
+      body: "You received a new message.",
+    })).resolves.toEqual({ success: true });
   });
 
   it("rejects invalid notification input before using the admin client", async () => {

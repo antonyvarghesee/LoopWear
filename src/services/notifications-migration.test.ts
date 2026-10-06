@@ -6,6 +6,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20261016000000_notifications_security.sql"),
   "utf8",
 );
+const eventMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261017000000_notification_event_idempotency.sql"),
+  "utf8",
+);
 const initialSchema = readFileSync(
   join(process.cwd(), "supabase/migrations/20261004000000_initial_schema.sql"),
   "utf8",
@@ -46,5 +50,10 @@ describe("Phase 13A notifications migration contract", () => {
     expect(migration).toMatch(/GRANT ALL PRIVILEGES ON TABLE public\.notifications TO service_role/i);
     expect(migration).not.toMatch(/GRANT INSERT[^;]*public\.notifications[^;]*TO authenticated/i);
     expect(migration).not.toMatch(/GRANT DELETE[^;]*public\.notifications[^;]*TO authenticated/i);
+  });
+
+  it("adds a unique stable event key for retry-safe event generation", () => {
+    expect(eventMigration).toMatch(/ADD COLUMN IF NOT EXISTS event_id UUID/i);
+    expect(eventMigration).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS notifications_type_event_id_unique_idx[\s\S]*?ON public\.notifications \(type, event_id\)[\s\S]*?WHERE event_id IS NOT NULL/i);
   });
 });

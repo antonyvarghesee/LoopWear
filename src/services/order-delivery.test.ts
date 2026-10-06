@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createSupabaseServerClient, getCurrentUser, rpc } = vi.hoisted(() => ({
+const { createSupabaseServerClient, getCurrentUser, rpc, notifyOrderDelivered } = vi.hoisted(() => ({
   createSupabaseServerClient: vi.fn(),
   getCurrentUser: vi.fn(),
   rpc: vi.fn(),
+  notifyOrderDelivered: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
 vi.mock("@/services/auth", () => ({ getCurrentUser }));
+vi.mock("@/services/notification-events", () => ({ notifyOrderDelivered }));
 
 import { confirmOrderDelivery, getBuyerOrders } from "@/services/order-delivery";
 
@@ -19,12 +21,19 @@ describe("order delivery service", () => {
   beforeEach(() => {
     getCurrentUser.mockReset().mockResolvedValue({ id: buyerId });
     rpc.mockReset().mockResolvedValue({ data: orderId, error: null });
+    notifyOrderDelivered.mockReset().mockResolvedValue(undefined);
     createSupabaseServerClient.mockReset().mockResolvedValue({ rpc });
   });
 
   it("allows the signed-in buyer to confirm by order ID only", async () => {
     await expect(confirmOrderDelivery(orderId)).resolves.toEqual({ success: true });
     expect(rpc).toHaveBeenCalledWith("confirm_order_delivery", { p_order_id: orderId });
+    expect(notifyOrderDelivered).toHaveBeenCalledWith(orderId);
+  });
+
+  it("keeps successful delivery confirmation successful if notifications fail", async () => {
+    notifyOrderDelivered.mockRejectedValueOnce(new Error("notification insert failed"));
+    await expect(confirmOrderDelivery(orderId)).resolves.toEqual({ success: true });
   });
 
   it("requires an authenticated user", async () => {
