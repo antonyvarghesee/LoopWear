@@ -13,6 +13,8 @@ export const publicEnvSchema = z.object({
 
 export const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  PAYU_MERCHANT_KEY: z.string().min(1).optional(),
+  PAYU_MERCHANT_SALT: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   SENTRY_DSN: z.string().url().optional(),
 });
@@ -29,6 +31,8 @@ export function getPublicEnv() {
 export function getServerEnv() {
   return serverEnvSchema.parse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    PAYU_MERCHANT_KEY: process.env.PAYU_MERCHANT_KEY,
+    PAYU_MERCHANT_SALT: process.env.PAYU_MERCHANT_SALT,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     SENTRY_DSN: process.env.SENTRY_DSN,
   });
