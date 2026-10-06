@@ -83,6 +83,25 @@ export async function listNotifications(input: unknown = {}): Promise<Notificati
   }
 }
 
+export async function getUnreadNotificationCount(): Promise<number> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Sign in to view your notifications.");
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    if (error) throw error;
+    return count ?? 0;
+  } catch {
+    console.error("Unread notification count lookup failed.");
+    throw new Error("Notifications are temporarily unavailable.");
+  }
+}
+
 export async function markNotificationRead(input: unknown): Promise<NotificationResult> {
   const parsedId = notificationIdSchema.safeParse(input);
   if (!parsedId.success) return { success: false, error: "This notification could not be found." };
@@ -105,5 +124,24 @@ export async function markNotificationRead(input: unknown): Promise<Notification
   } catch {
     console.error("Notification read state update failed.");
     return { success: false, error: "The notification could not be updated." };
+  }
+}
+
+export async function markAllNotificationsRead(): Promise<NotificationResult> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, error: "Sign in to update notifications." };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    if (error) throw error;
+    return { success: true };
+  } catch {
+    console.error("Mark all notifications read failed.");
+    return { success: false, error: "Notifications could not be updated." };
   }
 }

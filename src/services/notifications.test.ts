@@ -21,7 +21,9 @@ vi.mock("@/services/auth", () => ({ getCurrentUser }));
 
 import {
   createNotification,
+  getUnreadNotificationCount,
   listNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
 } from "@/services/notifications";
 import {
@@ -40,6 +42,11 @@ function setup() {
   createSupabaseAdminClient.mockReturnValue({ from: adminFrom });
 
   const range = vi.fn().mockResolvedValue({ data: [], error: null });
+  const countQuery = {
+    eq: vi.fn(),
+    then: (resolve: (value: { count: number; error: null }) => unknown) => Promise.resolve({ count: 7, error: null }).then(resolve),
+  };
+  countQuery.eq.mockReturnValue(countQuery);
   const selectQuery = {
     eq: vi.fn(),
     order: vi.fn(() => ({ range })),
@@ -47,15 +54,19 @@ function setup() {
   selectQuery.eq.mockReturnValue(selectQuery);
   const updateMaybeSingle = vi.fn().mockResolvedValue({ data: { id: notificationId }, error: null });
   const updateSelect = vi.fn(() => ({ maybeSingle: updateMaybeSingle }));
-  const updateQuery = { eq: vi.fn(), select: updateSelect };
+  const updateQuery = {
+    eq: vi.fn(),
+    select: updateSelect,
+    then: (resolve: (value: { error: null }) => unknown) => Promise.resolve({ error: null }).then(resolve),
+  };
   updateQuery.eq.mockReturnValue(updateQuery);
   serverFrom.mockReturnValue({
-    select: vi.fn(() => selectQuery),
+    select: vi.fn((_columns: string, options?: { head?: boolean }) => options?.head ? countQuery : selectQuery),
     update: vi.fn(() => updateQuery),
   });
   createSupabaseServerClient.mockResolvedValue({ from: serverFrom });
   getCurrentUser.mockResolvedValue({ id: userId });
-  return { adminInsert, selectQuery, range, updateQuery };
+  return { adminInsert, selectQuery, range, updateQuery, countQuery };
 }
 
 describe("notification validation and service", () => {
@@ -154,10 +165,31 @@ describe("notification validation and service", () => {
     expect(range).toHaveBeenCalledWith(10, 29);
   });
 
+  it("gets the unread count for only the authenticated user", async () => {
+    const { countQuery } = setup();
+    await expect(getUnreadNotificationCount()).resolves.toBe(7);
+    expect(countQuery.eq).toHaveBeenNthCalledWith(1, "user_id", userId);
+    expect(countQuery.eq).toHaveBeenNthCalledWith(2, "is_read", false);
+  });
+
   it("updates only read state for the authenticated user's notification", async () => {
     const { updateQuery } = setup();
     await expect(markNotificationRead(notificationId)).resolves.toEqual({ success: true });
     expect(updateQuery.eq).toHaveBeenNthCalledWith(1, "id", notificationId);
     expect(updateQuery.eq).toHaveBeenNthCalledWith(2, "user_id", userId);
+  });
+
+  it("marks all and only the authenticated user's unread notifications as read", async () => {
+    const { updateQuery } = setup();
+    await expect(markAllNotificationsRead()).resolves.toEqual({ success: true });
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(1, "user_id", userId);
+    expect(updateQuery.eq).toHaveBeenNthCalledWith(2, "is_read", false);
+  });
+
+  it("rejects unauthenticated mark-all requests", async () => {
+    setup();
+    getCurrentUser.mockResolvedValue(null);
+    await expect(markAllNotificationsRead()).resolves.toMatchObject({ success: false });
+    expect(serverFrom).not.toHaveBeenCalled();
   });
 });

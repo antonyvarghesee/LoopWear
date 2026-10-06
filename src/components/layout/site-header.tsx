@@ -4,8 +4,10 @@ import { MessageCircle, PlusCircle, Search, ShoppingBag, User } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HeaderMobileNav } from "@/components/layout/header-mobile-nav";
+import { NotificationUnreadBadge } from "@/components/notifications/notification-unread-badge";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getCurrentProfile, getCurrentUser } from "@/services/auth";
+import { getUnreadNotificationCount } from "@/services/notifications";
 import { logoutAction } from "@/app/actions/auth";
 
 const navLinks = [
@@ -19,6 +21,14 @@ export async function SiteHeader() {
   if (isSupabaseConfigured()) await connection();
   const user = isSupabaseConfigured() ? await getCurrentUser() : null;
   const profile = user ? await getCurrentProfile() : null;
+  let unreadNotifications = 0;
+  if (user) {
+    try {
+      unreadNotifications = await getUnreadNotificationCount();
+    } catch {
+      console.error("Unable to load the notification count for the site header.");
+    }
+  }
   const displayName = profile?.full_name || profile?.username || user?.email || "Account";
 
   return (
@@ -36,6 +46,7 @@ export async function SiteHeader() {
         </form>
         <div className="flex items-center gap-2 sm:gap-3">
           <Link href="/sell" className="hidden sm:block"><Button variant="outline" size="sm" className="gap-1.5 rounded-full text-xs font-semibold"><PlusCircle className="h-3.5 w-3.5" />List an Item</Button></Link>
+          {user && <NotificationUnreadBadge key={user.id} userId={user.id} initialCount={unreadNotifications} />}
           {user ? <details className="group relative">
             <summary className="flex max-w-40 cursor-pointer list-none items-center gap-2 rounded-full border border-border px-2.5 py-1 text-xs font-semibold hover:bg-muted" aria-label="Open account menu">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary"><User className="size-3.5" /></span><span className="truncate">{displayName}</span>
@@ -45,6 +56,7 @@ export async function SiteHeader() {
               <Link href="/dashboard/orders" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">My Orders</Link>
               <Link href="/dashboard/listings" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">My Listings</Link>
               <Link href="/favorites" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Favorites</Link>
+              <Link href="/notifications" className="block rounded-lg px-3 py-2 text-sm hover:bg-muted">Notifications</Link>
               <Link href="/messages" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted"><MessageCircle className="size-4" />Messages</Link>
               <form action={logoutAction}><button type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground">Log out</button></form>
             </div>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Heart, List, LogOut, Menu, MessageCircle, PackageCheck, PlusCircle, UserRound, X } from "lucide-react";
+import { Bell, Heart, List, LogOut, Menu, MessageCircle, PackageCheck, PlusCircle, UserRound, X } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 
 const links = [
@@ -25,6 +25,7 @@ export function HeaderMobileNav({ authenticated }: { authenticated: boolean }) {
         {authenticated && <Link href="/dashboard/orders" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><PackageCheck className="size-4" />My Orders</Link>}
         {authenticated && <Link href="/dashboard/listings" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><List className="size-4" />My Listings</Link>}
         {authenticated && <Link href="/favorites" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><Heart className="size-4" />Favorites</Link>}
+        {authenticated && <Link href="/notifications" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><Bell className="size-4" />Notifications</Link>}
         {authenticated && <Link href="/messages" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><MessageCircle className="size-4" />Messages</Link>}
         {authenticated && <form action={logoutAction} className="mt-1 border-t border-border pt-1"><button type="submit" onClick={() => setOpen(false)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><LogOut className="size-4" />Log out</button></form>}
       </nav>
